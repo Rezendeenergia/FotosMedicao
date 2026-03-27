@@ -2,7 +2,8 @@ import os
 import io
 import zipfile
 import copy
-import tempfile
+import time
+import logging
 from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS
 from pptx import Presentation
@@ -11,13 +12,18 @@ from lxml import etree
 from PIL import Image, ImageOps
 import sys
 
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app = Flask(__name__, static_folder=BASE_DIR)
-CORS(app, expose_headers=["X-Photos-Used", "X-Slides-Filled"])
+CORS(app, expose_headers=["X-Photos-Used", "X-Slides-Filled", "X-Processing-Time"])
 
-# Aumentar limite de upload para 100MB (Vercel ainda pode limitar a 50MB)
-app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
+# Configurações para produção
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
 # ── Dimensões alvo ──
 TARGET_W_CM  = 7.62
@@ -42,7 +48,11 @@ def index():
 
 @app.route("/health")
 def health():
-    return jsonify({"status": "ok", "message": "Backend Rezende Energia rodando!"})
+    return jsonify({
+        "status": "ok",
+        "message": "Backend Rezende Energia rodando!",
+        "timestamp": time.time()
+    })
 
 # ── Utilitários de imagem ──
 def resize_photo(img_bytes: bytes) -> bytes:
@@ -53,9 +63,10 @@ def resize_photo(img_bytes: bytes) -> bytes:
         img = ImageOps.fit(img, (target_w_px, target_h_px), method=Image.LANCZOS)
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=85, optimize=True)
+        logger.info(f"Imagem redimensionada: {target_w_px}x{target_h_px}")
         return buf.getvalue()
     except Exception as e:
-        print(f"Erro ao redimensionar imagem: {e}")
+        logger.error(f"Erro ao redimensionar imagem: {e}")
         raise
 
 def add_photo_to_slide(slide, slot: dict, img_bytes: bytes):
@@ -131,13 +142,17 @@ def remove_last_slide(prs: Presentation):
 
 def process_pptx(pptx_bytes: bytes, photos: list) -> bytes:
     """Lógica dinâmica com slides."""
+    logger.info(f"Iniciando processamento com {len(photos)} fotos")
     prs = Presentation(io.BytesIO(pptx_bytes))
 
     n_photos = len(photos)
     n_slides_needed = (n_photos + 3) // 4
     n_slides_have = len(list(prs.slides)) - 1
+    
+    logger.info(f"Slides necessários: {n_slides_needed}, disponíveis: {n_slides_have}")
 
     if n_slides_needed > n_slides_have:
+        logger.info(f"Duplicando {n_slides_needed - n_slides_have} slides")
         for _ in range(n_slides_needed - n_slides_have):
             duplicate_slide(prs, 1)
 
@@ -155,14 +170,17 @@ def process_pptx(pptx_bytes: bytes, photos: list) -> bytes:
             add_photo_to_slide(slide, slot, img_bytes)
             photo_idx += 1
         slides_used += 1
+        logger.info(f"Slide {slides_used} processado, {photo_idx}/{n_photos} fotos inseridas")
 
     total_slides_now = len(list(prs.slides))
     slides_to_remove = total_slides_now - 1 - slides_used
+    logger.info(f"Removendo {slides_to_remove} slides vazios")
     for _ in range(slides_to_remove):
         remove_last_slide(prs)
 
     out = io.BytesIO()
     prs.save(out)
+    logger.info("Processamento concluído")
     return out.getvalue()
 
 def extract_photos_from_zip(zip_bytes: bytes) -> list:
@@ -174,7 +192,9 @@ def extract_photos_from_zip(zip_bytes: bytes) -> list:
             if os.path.splitext(n.lower())[1] in VALID_EXT
             and not n.startswith("__MACOSX")
             and not os.path.basename(n).startswith(".")
+            and not n.startswith(".")
         ])
+        logger.info(f"Encontradas {len(names)} imagens no ZIP")
         for name in names[:100]:  # Limitar a 100 fotos
             photos.append((os.path.basename(name), zf.read(name)))
     return photos
@@ -182,6 +202,7 @@ def extract_photos_from_zip(zip_bytes: bytes) -> list:
 # ── Rotas API ──
 @app.route("/process", methods=["POST"])
 def process():
+    start_time = time.time()
     try:
         if "pptx" not in request.files:
             return jsonify({"error": "Arquivo .pptx não enviado"}), 400
@@ -205,10 +226,12 @@ def process():
         zip_size = zip_file.tell()
         zip_file.seek(0)
         
-        if pptx_size > 50 * 1024 * 1024:
-            return jsonify({"error": "Arquivo PPTX muito grande (máx 50MB)"}), 400
-        if zip_size > 50 * 1024 * 1024:
-            return jsonify({"error": "Arquivo ZIP muito grande (máx 50MB)"}), 400
+        logger.info(f"Recebendo arquivos: PPTX={pptx_size} bytes, ZIP={zip_size} bytes")
+        
+        if pptx_size > 100 * 1024 * 1024:
+            return jsonify({"error": "Arquivo PPTX muito grande (máx 100MB)"}), 400
+        if zip_size > 100 * 1024 * 1024:
+            return jsonify({"error": "Arquivo ZIP muito grande (máx 100MB)"}), 400
 
         pptx_bytes = pptx_file.read()
         zip_bytes = zip_file.read()
@@ -222,6 +245,9 @@ def process():
 
         n_photos = len(photos)
         n_slides = (n_photos + 3) // 4
+        processing_time = time.time() - start_time
+
+        logger.info(f"Processamento concluído em {processing_time:.2f} segundos")
 
         response = send_file(
             io.BytesIO(result_bytes),
@@ -231,12 +257,11 @@ def process():
         )
         response.headers["X-Photos-Used"] = str(n_photos)
         response.headers["X-Slides-Filled"] = str(n_slides)
+        response.headers["X-Processing-Time"] = f"{processing_time:.2f}"
         return response
         
     except Exception as e:
-        import traceback
-        print(f"Erro: {e}")
-        print(traceback.format_exc())
+        logger.error(f"Erro no processamento: {str(e)}", exc_info=True)
         return jsonify({"error": f"Erro ao processar: {str(e)}"}), 500
 
 @app.route("/validate", methods=["POST"])
@@ -267,5 +292,6 @@ def validate():
     return jsonify(result)
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5050))
+    port = int(os.environ.get("PORT", 10000))
+    logger.info(f"Iniciando servidor na porta {port}")
     app.run(debug=False, port=port, host="0.0.0.0")
