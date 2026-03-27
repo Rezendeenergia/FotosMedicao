@@ -91,19 +91,16 @@
   }
 
   .logo {
-    width: 70px;
-    height: 70px;
-    background: linear-gradient(135deg, var(--orange-primary), var(--orange-light));
-    border-radius: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    width: 80px;
+    height: 80px;
     margin: 0 auto 1.5rem;
-    font-size: 28px;
-    font-weight: 800;
-    color: var(--bg-primary);
-    box-shadow: 0 10px 30px var(--orange-glow);
     transition: transform 0.3s ease;
+  }
+
+  .logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
   }
 
   .logo:hover {
@@ -224,6 +221,7 @@
     align-items: center;
     justify-content: center;
     margin: 0 auto 1rem;
+    font-size: 2rem;
     transition: all 0.3s ease;
   }
 
@@ -425,6 +423,7 @@
     text-decoration: none;
     font-weight: 600;
     transition: all 0.3s ease;
+    cursor: pointer;
   }
 
   .btn-download:hover {
@@ -536,7 +535,7 @@
     .container {
       padding: 1rem;
     }
-
+    
     .dropzone-grid {
       grid-template-columns: 1fr;
     }
@@ -547,9 +546,11 @@
 <div class="bg-animation"></div>
 
 <div class="container">
-  <!-- Header -->
+  <!-- Header com Logo -->
   <div class="header">
-    <div class="logo">RE</div>
+    <div class="logo">
+      <img src="logo-rezende.png" alt="Rezende Energia" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect width=%22100%22 height=%22100%22 fill=%22%23F97316%22/%3E%3Ctext x=%2250%22 y=%2265%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2240%22 font-weight=%22bold%22%3ERE%3C/text%3E%3C/svg%3E'">
+    </div>
     <h1>Relatório Fotográfico</h1>
     <p class="subtitle">Automação inteligente para documentos de obra</p>
   </div>
@@ -683,7 +684,7 @@
           <span class="spec-value">100 fotos</span>
         </div>
         <div class="spec-item">
-          <span class="spec-label">Formato suportado</span>
+          <span class="spec-label">Formatos suportados</span>
           <span class="spec-value">JPG, PNG, WEBP</span>
         </div>
       </div>
@@ -703,25 +704,25 @@ let pptxFile = null, zipFile = null, blobUrl = null;
 function setupDropzone(dzId, inputId, onFile) {
   const dz = document.getElementById(dzId);
   const input = document.getElementById(inputId);
-
+  
   dz.onclick = () => input.click();
-
+  
   dz.ondragover = (e) => {
     e.preventDefault();
     dz.style.borderColor = 'var(--orange-primary)';
   };
-
+  
   dz.ondragleave = () => {
     dz.style.borderColor = '';
   };
-
+  
   dz.ondrop = (e) => {
     e.preventDefault();
     dz.style.borderColor = '';
     const file = e.dataTransfer.files[0];
     if (file) onFile(file);
   };
-
+  
   input.onchange = () => {
     if (input.files[0]) onFile(input.files[0]);
   };
@@ -753,7 +754,7 @@ setupDropzone('dzZip', 'fileZip', async (file) => {
   badge.style.display = 'inline-flex';
   badge.innerHTML = `✓ ${(file.size / 1024 / 1024).toFixed(1)} MB`;
   updateUI();
-
+  
   // Validate ZIP
   const fd = new FormData();
   fd.append('zip', file);
@@ -767,13 +768,14 @@ setupDropzone('dzZip', 'fileZip', async (file) => {
     }
   } catch (e) {
     console.error('Validation error:', e);
+    // Don't show error to user, just log
   }
 });
 
 function updateUI() {
   const btn = document.getElementById('btnProcess');
   const btnText = document.getElementById('btnText');
-
+  
   if (pptxFile && zipFile) {
     btn.disabled = false;
     btnText.textContent = '✨ Gerar Relatório Fotográfico';
@@ -800,7 +802,7 @@ function showError(msg) {
 function setProgress(stepIndex) {
   const steps = ['step1', 'step2', 'step3', 'step4', 'step5'];
   const percentages = [10, 25, 55, 85, 100];
-
+  
   steps.forEach((step, i) => {
     const el = document.getElementById(step);
     if (i < stepIndex) {
@@ -811,49 +813,55 @@ function setProgress(stepIndex) {
       el.className = 'step';
     }
   });
-
+  
   document.getElementById('progressFill').style.width = percentages[stepIndex] + '%';
 }
 
 async function processFiles() {
   if (!pptxFile || !zipFile) return;
-
+  
   document.getElementById('progressSection').classList.add('visible');
   document.getElementById('resultCard').classList.remove('visible');
+  document.getElementById('errorCard').classList.remove('visible');
   document.getElementById('btnProcess').disabled = true;
-
+  
   const fd = new FormData();
   fd.append('pptx', pptxFile);
   fd.append('zip', zipFile);
-
+  
   try {
     setProgress(0);
     await new Promise(r => setTimeout(r, 300));
     setProgress(1);
     await new Promise(r => setTimeout(r, 300));
     setProgress(2);
-
+    
     const response = await fetch('/process', { method: 'POST', body: fd });
-
+    
     setProgress(3);
     await new Promise(r => setTimeout(r, 300));
     setProgress(4);
-
+    
     if (!response.ok) {
-      throw new Error('Erro ao processar o relatório');
+      let errorMsg = 'Erro ao processar o relatório';
+      try {
+        const errorData = await response.json();
+        errorMsg = errorData.error || errorMsg;
+      } catch(e) {}
+      throw new Error(errorMsg);
     }
-
+    
     const photosUsed = response.headers.get('X-Photos-Used') || '?';
     const slidesFilled = response.headers.get('X-Slides-Filled') || '?';
     const blob = await response.blob();
-
+    
     if (blobUrl) URL.revokeObjectURL(blobUrl);
     blobUrl = URL.createObjectURL(blob);
-
+    
     document.getElementById('resultSub').textContent = `${photosUsed} fotos inseridas em ${slidesFilled} slides`;
     document.getElementById('btnDownload').href = blobUrl;
     document.getElementById('resultCard').classList.add('visible');
-
+    
   } catch (error) {
     showError(error.message);
   } finally {
@@ -866,7 +874,7 @@ function resetAll() {
   pptxFile = null;
   zipFile = null;
   if (blobUrl) URL.revokeObjectURL(blobUrl);
-
+  
   document.getElementById('dzPptx').classList.remove('loaded');
   document.getElementById('dzZip').classList.remove('loaded');
   document.getElementById('badgePptx').style.display = 'none';
@@ -877,7 +885,7 @@ function resetAll() {
   document.getElementById('statSlides').textContent = '—';
   document.getElementById('resultCard').classList.remove('visible');
   document.getElementById('errorCard').classList.remove('visible');
-
+  
   updateUI();
 }
 
@@ -887,9 +895,12 @@ async function healthCheck() {
     const res = await fetch('/health');
     if (res.ok) {
       console.log('✅ Backend OK');
+    } else {
+      console.warn('⚠️ Backend responded with status:', res.status);
     }
   } catch (e) {
     console.error('❌ Backend offline:', e);
+    showError('Servidor não disponível. Verifique sua conexão.');
   }
 }
 
