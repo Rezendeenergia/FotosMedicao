@@ -22,9 +22,9 @@ CORS(app, expose_headers=["X-Photos-Used", "X-Slides-Filled", "X-Barramentos", "
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
-# Dimensões PAISAGEM: 10,16 x 7,62 cm (invertido conforme solicitado)
-TARGET_W_CM = 10.16
-TARGET_H_CM = 7.62
+# Dimensões PADRÃO RETRATO: 7,62 x 10,16 cm
+TARGET_W_CM = 7.62
+TARGET_H_CM = 10.16
 CM_TO_EMU = 360000
 TARGET_W_EMU = int(TARGET_W_CM * CM_TO_EMU)
 TARGET_H_EMU = int(TARGET_H_CM * CM_TO_EMU)
@@ -88,8 +88,13 @@ def crop_and_resize(img_bytes, target_w_px, target_h_px):
     img_cropped.save(buf, format="JPEG", quality=75, subsampling=2)
     return buf.getvalue()
 
-def add_photo_to_slide(slide, slot, img_bytes, already_processed=False):
-    """Insere foto sem bordas brancas, com efeito Predefinicao 1 do PowerPoint."""
+def add_photo_to_slide(slide, slot, img_bytes, already_processed=False, is_landscape=None):
+    """
+    Insere foto no slot com orientacao inteligente:
+    - Padrao: retrato 7,62 x 10,16 cm
+    - Se a foto for paisagem (largura > altura): inverte slot para 10,16 x 7,62 cm
+    Sem bordas brancas. Com efeito Predefinicao 1 do PowerPoint.
+    """
     sp_tree = slide.shapes._spTree
 
     # Remove placeholder original
@@ -100,10 +105,28 @@ def add_photo_to_slide(slide, slot, img_bytes, already_processed=False):
                 sp_tree.remove(sp)
                 break
 
-    final_cx = slot["cx"]
-    final_cy = slot["cy"]
-    final_x = slot["x"]
-    final_y = slot["y"]
+    # Verifica orientacao da foto
+    if is_landscape is None:
+        # Detecta da imagem original (nao foi pre-processada)
+        try:
+            probe = Image.open(io.BytesIO(img_bytes))
+            is_landscape = probe.width > probe.height
+        except Exception:
+            is_landscape = False
+
+    if is_landscape:
+        # Inverte slot: 10,16 x 7,62 cm (paisagem)
+        final_cx = slot["cy"]   # troca largura <-> altura
+        final_cy = slot["cx"]
+        # Centraliza no espaco original do slot
+        final_x = slot["x"] + (slot["cx"] - final_cx) // 2
+        final_y = slot["y"] + (slot["cy"] - final_cy) // 2
+    else:
+        # Retrato padrao: 7,62 x 10,16 cm
+        final_cx = slot["cx"]
+        final_cy = slot["cy"]
+        final_x = slot["x"]
+        final_y = slot["y"]
 
     if already_processed:
         img_resized = img_bytes  # ja foi pre-processado em paralelo
@@ -250,13 +273,24 @@ _TARGET_W_PX = int(TARGET_W_EMU / CM_TO_EMU * 2.54 * 96)
 _TARGET_H_PX = int(TARGET_H_EMU / CM_TO_EMU * 2.54 * 96)
 
 def _preprocess_photo(args):
-    """Processa uma foto (crop+resize) — pode rodar em thread pool."""
+    """
+    Processa uma foto (crop+resize) em paralelo.
+    Detecta orientacao: retrato usa 7,62x10,16; paisagem usa 10,16x7,62.
+    Retorna (idx, img_bytes_processado, is_landscape).
+    """
     idx, img_bytes = args
     try:
-        return idx, crop_and_resize(img_bytes, _TARGET_W_PX, _TARGET_H_PX)
+        probe = Image.open(io.BytesIO(img_bytes))
+        is_landscape = probe.width > probe.height
+        if is_landscape:
+            # Inverte dimensoes para foto paisagem
+            data = crop_and_resize(img_bytes, _TARGET_H_PX, _TARGET_W_PX)
+        else:
+            data = crop_and_resize(img_bytes, _TARGET_W_PX, _TARGET_H_PX)
+        return idx, data, is_landscape
     except Exception as e:
         logger.warning(f"Foto {idx} ignorada: {e}")
-        return idx, None
+        return idx, None, False
 
 @app.route("/process", methods=["POST"])
 def process_pptx():
@@ -275,7 +309,8 @@ def process_pptx():
         args = [(i, data) for i, (_, data) in enumerate(photos)]
         with ThreadPoolExecutor(max_workers=4) as pool:
             results = list(pool.map(_preprocess_photo, args))
-        processed = {idx: data for idx, data in results if data is not None}
+        # processed: {idx: (img_bytes, is_landscape)}
+        processed = {idx: (data, lsc) for idx, data, lsc in results if data is not None}
         logger.info(f"Pre-processamento concluido em {time.time()-t0:.1f}s")
 
         prs = Presentation(io.BytesIO(pptx_bytes))
@@ -293,7 +328,9 @@ def process_pptx():
             for slot_idx, slot in enumerate(PHOTO_SLOTS_4):
                 photo_idx = slide_idx * 4 + slot_idx
                 if photo_idx < len(photos) and photo_idx in processed:
-                    add_photo_to_slide(slide, slot, processed[photo_idx], already_processed=True)
+                    img_data, is_lsc = processed[photo_idx]
+                    add_photo_to_slide(slide, slot, img_data,
+                                       already_processed=True, is_landscape=is_lsc)
                     photos_used += 1
         out = io.BytesIO()
         prs.save(out)
