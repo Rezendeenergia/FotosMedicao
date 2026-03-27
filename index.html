@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Rezende Energia · Relatório Fotográfico</title>
+<title>Rezende Energia — Relatório Fotográfico</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet"/>
 <style>
   * {
@@ -160,12 +160,91 @@
     color: var(--text-secondary);
   }
 
-  /* Dropzone Grid */
+  /* Tabs */
+  .tab-bar {
+    display: flex;
+    gap: 0;
+    margin-bottom: 2rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    padding: 5px;
+    width: fit-content;
+  }
+
+  .tab-btn {
+    padding: 10px 28px;
+    border-radius: 99px;
+    border: none;
+    background: transparent;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .tab-btn.active {
+    background: linear-gradient(105deg, var(--orange-primary), var(--orange-light));
+    color: #111;
+  }
+
+  .tab-panel {
+    display: none;
+  }
+
+  .tab-panel.active {
+    display: block;
+    animation: fadeInUp 0.4s ease-out;
+  }
+
+  /* Steps */
+  .steps {
+    display: flex;
+    gap: 0;
+    margin-bottom: 2rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    padding: 5px;
+    width: fit-content;
+  }
+
+  .step-pill {
+    padding: 8px 24px;
+    border-radius: 99px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    color: var(--text-muted);
+    transition: all 0.3s ease;
+    cursor: default;
+  }
+
+  .step-pill.active {
+    background: linear-gradient(105deg, var(--orange-primary), var(--orange-light));
+    color: #111;
+  }
+
+  .step-pill.done {
+    color: var(--green-success);
+  }
+
+  /* Drop Zones */
   .dropzone-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: 1fr 1fr;
     gap: 1.5rem;
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
+  }
+
+  @media (max-width: 600px) {
+    .dropzone-grid {
+      grid-template-columns: 1fr;
+    }
   }
 
   .dropzone {
@@ -177,6 +256,7 @@
     transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
+    text-align: center;
   }
 
   .dropzone::before {
@@ -204,12 +284,6 @@
     border-color: var(--green-success);
     border-style: solid;
     background: rgba(16, 185, 129, 0.05);
-  }
-
-  .dz-content {
-    position: relative;
-    z-index: 1;
-    text-align: center;
   }
 
   .dz-icon {
@@ -294,8 +368,8 @@
     cursor: not-allowed;
   }
 
-  /* Progress Section */
-  .progress-section {
+  /* Progress */
+  .progress-wrap {
     background: var(--bg-card);
     border-radius: var(--radius-lg);
     padding: 1.5rem;
@@ -303,9 +377,8 @@
     display: none;
   }
 
-  .progress-section.visible {
+  .progress-wrap.visible {
     display: block;
-    animation: fadeInUp 0.4s ease-out;
   }
 
   .progress-bar {
@@ -322,34 +395,16 @@
     border-radius: 4px;
     width: 0%;
     transition: width 0.3s ease;
-    position: relative;
-    overflow: hidden;
   }
 
-  .progress-fill::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-    animation: shimmer 1s infinite;
-  }
-
-  @keyframes shimmer {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
-  }
-
-  .steps-list {
+  .progress-steps {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
     margin-top: 1rem;
   }
 
-  .step {
+  .pstep {
     display: flex;
     align-items: center;
     gap: 0.75rem;
@@ -357,15 +412,15 @@
     color: var(--text-secondary);
   }
 
-  .step.active {
+  .pstep.active {
     color: var(--orange-primary);
   }
 
-  .step.done {
+  .pstep.done {
     color: var(--green-success);
   }
 
-  .step-dot {
+  .pstep-dot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
@@ -384,7 +439,6 @@
 
   .result-card.visible {
     display: block;
-    animation: fadeInUp 0.4s ease-out;
   }
 
   .result-header {
@@ -461,13 +515,153 @@
 
   .error-card.visible {
     display: flex;
-    animation: shake 0.4s ease-out;
   }
 
-  @keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-5px); }
-    75% { transform: translateX(5px); }
+  /* Barramento Cards */
+  .barr-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    animation: fadeInUp 0.3s ease;
+  }
+
+  .barr-card-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .barr-num-badge {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, var(--orange-primary), var(--orange-light));
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+    color: #111;
+  }
+
+  .barr-input {
+    flex: 1;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 0.75rem 1rem;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+  }
+
+  .barr-input:focus {
+    outline: none;
+    border-color: var(--orange-primary);
+  }
+
+  .btn-remove-barr {
+    width: 36px;
+    height: 36px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .btn-remove-barr:hover {
+    border-color: var(--red-error);
+    color: var(--red-error);
+  }
+
+  .barr-photos {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+
+  @media (max-width: 600px) {
+    .barr-photos {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .photo-drop {
+    background: var(--bg-secondary);
+    border: 2px dashed var(--border);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.3s ease;
+  }
+
+  .photo-drop:hover {
+    border-color: var(--orange-primary);
+  }
+
+  .photo-drop.loaded {
+    border-color: var(--green-success);
+    border-style: solid;
+  }
+
+  .photo-drop-icon {
+    margin-bottom: 0.5rem;
+  }
+
+  .photo-preview {
+    width: 100%;
+    max-height: 80px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    margin-bottom: 0.5rem;
+    display: none;
+  }
+
+  .photo-drop.loaded .photo-preview {
+    display: block;
+  }
+
+  .photo-drop.loaded .photo-drop-icon {
+    display: none;
+  }
+
+  .photo-drop-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .photo-filename {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    word-break: break-all;
+    display: none;
+  }
+
+  .photo-drop.loaded .photo-filename {
+    display: block;
+  }
+
+  .btn-add-barr {
+    width: 100%;
+    padding: 1rem;
+    background: transparent;
+    border: 2px dashed var(--orange-primary);
+    border-radius: var(--radius-lg);
+    color: var(--orange-primary);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: 1.5rem;
+  }
+
+  .btn-add-barr:hover {
+    background: rgba(249, 115, 22, 0.1);
   }
 
   /* Specs Card */
@@ -475,7 +669,7 @@
     background: var(--bg-card);
     border-radius: var(--radius-lg);
     padding: 1.5rem;
-    margin-bottom: 2rem;
+    margin-top: 2rem;
   }
 
   .specs-title {
@@ -515,7 +709,19 @@
     color: var(--text-muted);
     font-size: 0.75rem;
     padding-top: 2rem;
+    margin-top: 2rem;
     border-top: 1px solid var(--border);
+  }
+
+  /* Debug Panel */
+  .debug-panel {
+    margin-top: 2rem;
+    padding: 1rem;
+    background: #0A0A0F;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    font-family: monospace;
+    font-size: 0.75rem;
   }
 
   /* Animations */
@@ -530,14 +736,20 @@
     }
   }
 
-  /* Responsive */
-  @media (max-width: 768px) {
-    .container {
-      padding: 1rem;
-    }
-    
-    .dropzone-grid {
-      grid-template-columns: 1fr;
+  /* Spinner */
+  .spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(0, 0, 0, 0.2);
+    border-top-color: #111;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
     }
   }
 </style>
@@ -546,114 +758,159 @@
 <div class="bg-animation"></div>
 
 <div class="container">
-  <!-- Header com Logo -->
+  <!-- Header -->
   <div class="header">
     <div class="logo">
       <img src="logo-rezende.png" alt="Rezende Energia" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect width=%22100%22 height=%22100%22 fill=%22%23F97316%22/%3E%3Ctext x=%2250%22 y=%2265%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2240%22 font-weight=%22bold%22%3ERE%3C/text%3E%3C/svg%3E'">
     </div>
-    <h1>Relatório Fotográfico</h1>
-    <p class="subtitle">Automação inteligente para documentos de obra</p>
+    <h1>Automação de Relatório<br>Fotográfico de Obra</h1>
+    <p class="subtitle">Equatorial Pará · Rezende Energia · Gerência de Controle e Estratégia</p>
   </div>
 
-  <!-- Stats -->
-  <div class="stats-grid">
-    <div class="stat-card">
-      <div class="stat-value" id="statPhotos">—</div>
-      <div class="stat-label">Fotos detectadas</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-value" id="statSlides">—</div>
-      <div class="stat-label">Slides a preencher</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-value">7,62 × 10,16</div>
-      <div class="stat-label">Tamanho da foto (cm)</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-value">4/slide</div>
-      <div class="stat-label">Fotos por slide</div>
-    </div>
+  <!-- Tabs -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('relatorio')">📷 Relatório Fotográfico</button>
+    <button class="tab-btn" onclick="switchTab('base')">🏗️ Base Concretada</button>
   </div>
 
-  <!-- Dropzones -->
-  <div class="dropzone-grid">
-    <div class="dropzone" id="dzPptx">
-      <div class="dz-content">
+  <!-- TAB: Relatório Fotográfico -->
+  <div class="tab-panel active" id="tab-relatorio">
+    <!-- Steps -->
+    <div class="steps">
+      <div class="step-pill active" id="step1">1 · Anexar arquivos</div>
+      <div class="step-pill" id="step2">2 · Processar</div>
+      <div class="step-pill" id="step3">3 · Download</div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="infoPhotos">—</div>
+        <div class="stat-label">Fotos detectadas</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="infoSlides">—</div>
+        <div class="stat-label">Slides a preencher</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">7,62 × 10,16</div>
+        <div class="stat-label">Tamanho (cm)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">4/slide</div>
+        <div class="stat-label">Fotos por slide</div>
+      </div>
+    </div>
+
+    <!-- Drop Zones -->
+    <div class="dropzone-grid">
+      <div class="dropzone" id="dzPptx" onclick="document.getElementById('filePptx').click()">
+        <input type="file" id="filePptx" accept=".pptx" style="display: none;">
         <div class="dz-icon">📄</div>
         <div class="dz-label">Template PowerPoint</div>
-        <div class="dz-sub">Arraste ou clique para selecionar<br/>Arquivo .pptx</div>
+        <div class="dz-sub">Arraste ou clique para selecionar<br>Arquivo .pptx do relatório</div>
         <div class="dz-badge" id="badgePptx" style="display: none;"></div>
       </div>
-      <input type="file" id="filePptx" accept=".pptx" style="display: none;">
-    </div>
 
-    <div class="dropzone" id="dzZip">
-      <div class="dz-content">
+      <div class="dropzone" id="dzZip" onclick="document.getElementById('fileZip').click()">
+        <input type="file" id="fileZip" accept=".zip" style="display: none;">
         <div class="dz-icon">📦</div>
         <div class="dz-label">Pacote de Fotos</div>
-        <div class="dz-sub">Arraste ou clique para selecionar<br/>Arquivo .zip com as fotos</div>
+        <div class="dz-sub">Arraste ou clique para selecionar<br>Arquivo .zip com as fotos da obra</div>
         <div class="dz-badge" id="badgeZip" style="display: none;"></div>
       </div>
-      <input type="file" id="fileZip" accept=".zip" style="display: none;">
     </div>
-  </div>
 
-  <!-- Process Button -->
-  <button class="btn-process" id="btnProcess" disabled onclick="processFiles()">
-    <span>⚡</span>
-    <span id="btnText">Selecione os arquivos</span>
-  </button>
-
-  <!-- Progress -->
-  <div class="progress-section" id="progressSection">
-    <div class="progress-bar">
-      <div class="progress-fill" id="progressFill"></div>
-    </div>
-    <div class="steps-list" id="stepsList">
-      <div class="step" id="step1">
-        <div class="step-dot"></div>
-        <span>Validando arquivos</span>
-      </div>
-      <div class="step" id="step2">
-        <div class="step-dot"></div>
-        <span>Extraindo fotos do ZIP</span>
-      </div>
-      <div class="step" id="step3">
-        <div class="step-dot"></div>
-        <span>Redimensionando imagens</span>
-      </div>
-      <div class="step" id="step4">
-        <div class="step-dot"></div>
-        <span>Inserindo fotos nos slides</span>
-      </div>
-      <div class="step" id="step5">
-        <div class="step-dot"></div>
-        <span>Gerando arquivo final</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- Error -->
-  <div class="error-card" id="errorCard">
-    <span>⚠️</span>
-    <span id="errorText"></span>
-  </div>
-
-  <!-- Result -->
-  <div class="result-card" id="resultCard">
-    <div class="result-header">
-      <div class="result-icon">✓</div>
-      <div>
-        <div class="result-title">Relatório gerado com sucesso!</div>
-        <div class="stat-label" id="resultSub"></div>
-      </div>
-    </div>
-    <a class="btn-download" id="btnDownload" href="#" download="relatorio_preenchido.pptx">
-      📥 Baixar relatório
-    </a>
-    <button class="btn-reset" onclick="resetAll()">
-      🔄 Processar novo relatório
+    <!-- Process Button -->
+    <button class="btn-process" id="btnProcess" disabled onclick="processFiles()">
+      <span>⚡</span>
+      <span id="btnText">Selecione os arquivos</span>
     </button>
+
+    <!-- Progress -->
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-steps">
+        <div class="pstep" id="ps1"><div class="pstep-dot"></div><span>Validando arquivos</span></div>
+        <div class="pstep" id="ps2"><div class="pstep-dot"></div><span>Extraindo fotos do ZIP</span></div>
+        <div class="pstep" id="ps3"><div class="pstep-dot"></div><span>Redimensionando imagens</span></div>
+        <div class="pstep" id="ps4"><div class="pstep-dot"></div><span>Inserindo fotos nos slides</span></div>
+        <div class="pstep" id="ps5"><div class="pstep-dot"></div><span>Gerando arquivo final</span></div>
+      </div>
+    </div>
+
+    <!-- Error -->
+    <div class="error-card" id="errorCard">
+      <span>⚠️</span>
+      <span id="errorText"></span>
+    </div>
+
+    <!-- Result -->
+    <div class="result-card" id="resultCard">
+      <div class="result-header">
+        <div class="result-icon">✓</div>
+        <div>
+          <div class="result-title">Relatório gerado com sucesso!</div>
+          <div class="result-sub" id="resultSub"></div>
+        </div>
+      </div>
+      <a class="btn-download" id="btnDownload" href="#" download="relatorio_preenchido.pptx">📥 Baixar relatório</a>
+      <button class="btn-reset" onclick="resetAll()">🔄 Processar novo relatório</button>
+    </div>
+  </div>
+
+  <!-- TAB: Base Concretada -->
+  <div class="tab-panel" id="tab-base">
+    <!-- PPTX Upload -->
+    <div class="dropzone" id="dzBasePptx" onclick="document.getElementById('fileBasePptx').click()" style="margin-bottom: 1.5rem;">
+      <input type="file" id="fileBasePptx" accept=".pptx" style="display: none;">
+      <div class="dz-icon">🏗️</div>
+      <div class="dz-label">Template Base Concretada</div>
+      <div class="dz-sub">Arraste ou clique para selecionar<br>Arquivo .pptx da base concretada</div>
+      <div class="dz-badge" id="badgeBasePptx" style="display: none;"></div>
+    </div>
+
+    <!-- Barramentos Header -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <h3 style="font-size: 1rem;">Barramentos</h3>
+      <span style="color: var(--text-muted);">Total: <span id="barrCount" style="color: var(--orange-primary); font-weight: 700;">0</span></span>
+    </div>
+
+    <div id="barrList"></div>
+
+    <button class="btn-add-barr" onclick="addBarramento()">
+      <span>+</span> Adicionar Barramento
+    </button>
+
+    <!-- Process Button Base -->
+    <button class="btn-process" id="btnProcessBase" disabled onclick="processBase()">
+      <span>🏗️</span>
+      <span id="btnBaseText">Adicione o template e pelo menos 1 barramento</span>
+    </button>
+
+    <!-- Progress Base -->
+    <div class="progress-wrap" id="progressBase">
+      <div class="progress-bar"><div class="progress-fill" id="progressBaseFill"></div></div>
+    </div>
+
+    <!-- Error Base -->
+    <div class="error-card" id="errorBase">
+      <span>⚠️</span>
+      <span id="errorBaseText"></span>
+    </div>
+
+    <!-- Result Base -->
+    <div class="result-card" id="resultBase">
+      <div class="result-header">
+        <div class="result-icon">✓</div>
+        <div>
+          <div class="result-title">Base Concretada gerada!</div>
+          <div class="result-sub" id="resultBaseSub"></div>
+        </div>
+      </div>
+      <a class="btn-download" id="btnDownloadBase" href="#" download="base_concretada_preenchida.pptx">📥 Baixar relatório</a>
+      <button class="btn-reset" onclick="resetBase()">🔄 Novo relatório de base</button>
+    </div>
   </div>
 
   <!-- Specs -->
@@ -666,245 +923,465 @@
           <span class="spec-value">33,87 × 19,05 cm</span>
         </div>
         <div class="spec-item">
-          <span class="spec-label">Resolução das fotos</span>
-          <span class="spec-value">150 DPI</span>
+          <span class="spec-label">Fotos por slide</span>
+          <span class="spec-value highlight">4 fotos</span>
+        </div>
+        <div class="spec-item">
+          <span class="spec-label">Slides de foto</span>
+          <span class="spec-value highlight">Slide 2 ao 26</span>
+        </div>
+        <div class="spec-item">
+          <span class="spec-label">Capacidade máxima</span>
+          <span class="spec-value highlight">100 fotos</span>
+        </div>
+      </div>
+      <div>
+        <div class="spec-item">
+          <span class="spec-label">Largura da foto</span>
+          <span class="spec-value">7,62 cm</span>
+        </div>
+        <div class="spec-item">
+          <span class="spec-label">Altura da foto</span>
+          <span class="spec-value">10,16 cm</span>
+        </div>
+        <div class="spec-item">
+          <span class="spec-label">Posicionamento</span>
+          <span class="spec-value">4 colunas</span>
         </div>
         <div class="spec-item">
           <span class="spec-label">Redimensionamento</span>
           <span class="spec-value">Crop central</span>
         </div>
       </div>
-      <div>
-        <div class="spec-item">
-          <span class="spec-label">Slides disponíveis</span>
-          <span class="spec-value">2 a 26</span>
-        </div>
-        <div class="spec-item">
-          <span class="spec-label">Capacidade máxima</span>
-          <span class="spec-value">100 fotos</span>
-        </div>
-        <div class="spec-item">
-          <span class="spec-label">Formatos suportados</span>
-          <span class="spec-value">JPG, PNG, WEBP</span>
-        </div>
-      </div>
     </div>
   </div>
 
   <div class="footer">
-    <p>Rezende Energia · Gerência de Controle e Estratégia de Investimentos</p>
-    <p style="margin-top: 0.5rem;">Dados processados localmente · Nenhuma informação é armazenada</p>
+    Rezende Energia · Gerência de Controle e Estratégia de Investimentos<br>
+    Dados não são armazenados — processamento local seguro
+  </div>
+
+  <!-- Debug Panel -->
+  <div class="debug-panel">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+      <span style="color: var(--orange-primary); font-weight: 700;">⚡ DEBUG</span>
+      <button onclick="runHealthCheck()" style="padding: 4px 12px; background: var(--orange-primary); border: none; border-radius: 6px; color: #111; font-weight: 600; cursor: pointer;">Testar</button>
+    </div>
+    <div id="debugLog" style="max-height: 150px; overflow-y: auto; font-family: monospace; font-size: 11px;">
+      <span style="color: #555;">— aguardando teste —</span>
+    </div>
   </div>
 </div>
 
 <script>
+const API = '';
 let pptxFile = null, zipFile = null, blobUrl = null;
+let basePptxFile = null, barramentos = [], baseBlobUrl = null;
 
-// Setup dropzones
-function setupDropzone(dzId, inputId, onFile) {
+// ── Helper Functions ──
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function showError(msg, isBase = false) {
+  if (isBase) {
+    document.getElementById('errorBaseText').textContent = msg;
+    document.getElementById('errorBase').classList.add('visible');
+  } else {
+    document.getElementById('errorText').textContent = msg;
+    document.getElementById('errorCard').classList.add('visible');
+  }
+}
+
+function hideError(isBase = false) {
+  if (isBase) {
+    document.getElementById('errorBase').classList.remove('visible');
+  } else {
+    document.getElementById('errorCard').classList.remove('visible');
+  }
+}
+
+// ── Tab System ──
+function switchTab(tab) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+// ── Relatório Fotográfico ──
+function setupDrop(dzId, inputId, onFile) {
   const dz = document.getElementById(dzId);
   const input = document.getElementById(inputId);
-  
-  dz.onclick = () => input.click();
-  
-  dz.ondragover = (e) => {
-    e.preventDefault();
-    dz.style.borderColor = 'var(--orange-primary)';
-  };
-  
-  dz.ondragleave = () => {
-    dz.style.borderColor = '';
-  };
-  
-  dz.ondrop = (e) => {
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.borderColor = 'var(--orange-primary)'; });
+  dz.addEventListener('dragleave', () => { dz.style.borderColor = ''; });
+  dz.addEventListener('drop', e => {
     e.preventDefault();
     dz.style.borderColor = '';
     const file = e.dataTransfer.files[0];
     if (file) onFile(file);
-  };
-  
-  input.onchange = () => {
-    if (input.files[0]) onFile(input.files[0]);
-  };
+  });
+  input.addEventListener('change', () => { if (input.files[0]) onFile(input.files[0]); });
 }
 
-setupDropzone('dzPptx', 'filePptx', (file) => {
-  if (!file.name.endsWith('.pptx')) {
-    showError('O template deve ser um arquivo .pptx');
-    return;
-  }
+setupDrop('dzPptx', 'filePptx', file => {
+  if (!file.name.endsWith('.pptx')) { showError('O template deve ser .pptx'); return; }
   pptxFile = file;
-  const dz = document.getElementById('dzPptx');
-  dz.classList.add('loaded');
-  const badge = document.getElementById('badgePptx');
-  badge.style.display = 'inline-flex';
-  badge.innerHTML = `✓ ${(file.size / 1024 / 1024).toFixed(1)} MB`;
+  document.getElementById('dzPptx').classList.add('loaded');
+  document.getElementById('subPptx').textContent = file.name;
+  document.getElementById('badgePptx').style.display = 'inline-flex';
+  document.getElementById('badgePptx').innerHTML = `✓ ${formatSize(file.size)}`;
   updateUI();
 });
 
-setupDropzone('dzZip', 'fileZip', async (file) => {
-  if (!file.name.endsWith('.zip')) {
-    showError('O pacote de fotos deve ser um arquivo .zip');
-    return;
-  }
+setupDrop('dzZip', 'fileZip', async file => {
+  if (!file.name.endsWith('.zip')) { showError('O pacote deve ser .zip'); return; }
   zipFile = file;
-  const dz = document.getElementById('dzZip');
-  dz.classList.add('loaded');
-  const badge = document.getElementById('badgeZip');
-  badge.style.display = 'inline-flex';
-  badge.innerHTML = `✓ ${(file.size / 1024 / 1024).toFixed(1)} MB`;
+  document.getElementById('dzZip').classList.add('loaded');
+  document.getElementById('subZip').textContent = file.name;
+  document.getElementById('badgeZip').style.display = 'inline-flex';
+  document.getElementById('badgeZip').innerHTML = `✓ ${formatSize(file.size)}`;
   updateUI();
   
-  // Validate ZIP
   const fd = new FormData();
   fd.append('zip', file);
   try {
-    const res = await fetch('/validate', { method: 'POST', body: fd });
-    const data = await res.json();
-    if (data.zip && data.zip.ok) {
-      const n = Math.min(data.zip.photos, 100);
-      document.getElementById('statPhotos').textContent = n;
-      document.getElementById('statSlides').textContent = Math.ceil(n / 4);
+    const r = await fetch(`${API}/validate`, { method: 'POST', body: fd });
+    const j = await r.json();
+    if (j.zip && j.zip.ok) {
+      const n = Math.min(j.zip.photos, 100);
+      document.getElementById('infoPhotos').textContent = n;
+      document.getElementById('infoSlides').textContent = Math.ceil(n / 4);
     }
-  } catch (e) {
-    console.error('Validation error:', e);
-    // Don't show error to user, just log
-  }
+  } catch(e) {}
 });
 
 function updateUI() {
   const btn = document.getElementById('btnProcess');
-  const btnText = document.getElementById('btnText');
-  
+  const txt = document.getElementById('btnText');
+  const s1 = document.getElementById('step1');
+  const s2 = document.getElementById('step2');
   if (pptxFile && zipFile) {
     btn.disabled = false;
-    btnText.textContent = '✨ Gerar Relatório Fotográfico';
-  } else if (pptxFile) {
+    txt.textContent = '✨ Gerar Relatório Fotográfico';
+    s1.classList.remove('active');
+    s1.classList.add('done');
+    s2.classList.add('active');
+  } else if (pptxFile || zipFile) {
     btn.disabled = true;
-    btnText.textContent = '📦 Adicione o ZIP com as fotos';
-  } else if (zipFile) {
-    btn.disabled = true;
-    btnText.textContent = '📄 Adicione o template PPTX';
+    txt.textContent = pptxFile ? '📦 Adicione o ZIP com as fotos' : '📄 Adicione o template PPTX';
   } else {
     btn.disabled = true;
-    btnText.textContent = '📁 Selecione os arquivos';
+    txt.textContent = '📁 Selecione os arquivos';
   }
 }
 
-function showError(msg) {
-  document.getElementById('errorText').textContent = msg;
-  document.getElementById('errorCard').classList.add('visible');
-  setTimeout(() => {
-    document.getElementById('errorCard').classList.remove('visible');
-  }, 5000);
-}
+const STEPS = ['ps1', 'ps2', 'ps3', 'ps4', 'ps5'];
+const TEXTS = ['Validando arquivos...', 'Extraindo fotos do ZIP...', 'Redimensionando imagens...', 'Inserindo fotos nos slides...', 'Gerando arquivo final...'];
+const PCTS = [10, 25, 55, 85, 100];
 
-function setProgress(stepIndex) {
-  const steps = ['step1', 'step2', 'step3', 'step4', 'step5'];
-  const percentages = [10, 25, 55, 85, 100];
-  
-  steps.forEach((step, i) => {
+function setProgress(idx) {
+  STEPS.forEach((step, i) => {
     const el = document.getElementById(step);
-    if (i < stepIndex) {
-      el.className = 'step done';
-    } else if (i === stepIndex) {
-      el.className = 'step active';
-    } else {
-      el.className = 'step';
-    }
+    if (i < idx) el.className = 'pstep done';
+    else if (i === idx) el.className = 'pstep active';
+    else el.className = 'pstep';
   });
-  
-  document.getElementById('progressFill').style.width = percentages[stepIndex] + '%';
+  document.getElementById('progressFill').style.width = PCTS[idx] + '%';
 }
 
 async function processFiles() {
   if (!pptxFile || !zipFile) return;
-  
-  document.getElementById('progressSection').classList.add('visible');
+  hideError();
   document.getElementById('resultCard').classList.remove('visible');
-  document.getElementById('errorCard').classList.remove('visible');
+  document.getElementById('progressWrap').classList.add('visible');
   document.getElementById('btnProcess').disabled = true;
+  
+  setProgress(0);
+  await delay(300);
+  setProgress(1);
+  await delay(300);
+  setProgress(2);
   
   const fd = new FormData();
   fd.append('pptx', pptxFile);
   fd.append('zip', zipFile);
   
   try {
-    setProgress(0);
-    await new Promise(r => setTimeout(r, 300));
-    setProgress(1);
-    await new Promise(r => setTimeout(r, 300));
-    setProgress(2);
-    
-    const response = await fetch('/process', { method: 'POST', body: fd });
-    
+    await delay(500);
     setProgress(3);
-    await new Promise(r => setTimeout(r, 300));
+    await delay(500);
     setProgress(4);
     
-    if (!response.ok) {
-      let errorMsg = 'Erro ao processar o relatório';
-      try {
-        const errorData = await response.json();
-        errorMsg = errorData.error || errorMsg;
-      } catch(e) {}
-      throw new Error(errorMsg);
-    }
+    const resp = await fetch(`${API}/process`, { method: 'POST', body: fd });
+    if (!resp.ok) throw new Error('Erro ao processar');
     
-    const photosUsed = response.headers.get('X-Photos-Used') || '?';
-    const slidesFilled = response.headers.get('X-Slides-Filled') || '?';
-    const blob = await response.blob();
+    const photosUsed = resp.headers.get('X-Photos-Used') || '?';
+    const slidesFilled = resp.headers.get('X-Slides-Filled') || '?';
+    const blob = await resp.blob();
     
     if (blobUrl) URL.revokeObjectURL(blobUrl);
     blobUrl = URL.createObjectURL(blob);
     
+    document.getElementById('step2').classList.remove('active');
+    document.getElementById('step2').classList.add('done');
+    document.getElementById('step3').classList.add('active');
     document.getElementById('resultSub').textContent = `${photosUsed} fotos inseridas em ${slidesFilled} slides`;
     document.getElementById('btnDownload').href = blobUrl;
     document.getElementById('resultCard').classList.add('visible');
-    
-  } catch (error) {
-    showError(error.message);
+    document.getElementById('progressWrap').classList.remove('visible');
+  } catch (err) {
+    showError(err.message);
+    document.getElementById('progressWrap').classList.remove('visible');
   } finally {
-    document.getElementById('progressSection').classList.remove('visible');
     document.getElementById('btnProcess').disabled = false;
   }
 }
 
 function resetAll() {
-  pptxFile = null;
-  zipFile = null;
-  if (blobUrl) URL.revokeObjectURL(blobUrl);
-  
-  document.getElementById('dzPptx').classList.remove('loaded');
-  document.getElementById('dzZip').classList.remove('loaded');
-  document.getElementById('badgePptx').style.display = 'none';
-  document.getElementById('badgeZip').style.display = 'none';
+  pptxFile = null; zipFile = null;
+  if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }
+  document.querySelectorAll('#dzPptx, #dzZip').forEach(el => el.classList.remove('loaded'));
+  document.querySelectorAll('#badgePptx, #badgeZip').forEach(el => el.style.display = 'none');
+  document.getElementById('subPptx').innerHTML = 'Arraste ou clique para selecionar<br>Arquivo .pptx do relatório';
+  document.getElementById('subZip').innerHTML = 'Arraste ou clique para selecionar<br>Arquivo .zip com as fotos da obra';
   document.getElementById('filePptx').value = '';
   document.getElementById('fileZip').value = '';
-  document.getElementById('statPhotos').textContent = '—';
-  document.getElementById('statSlides').textContent = '—';
+  document.getElementById('infoPhotos').textContent = '—';
+  document.getElementById('infoSlides').textContent = '—';
   document.getElementById('resultCard').classList.remove('visible');
-  document.getElementById('errorCard').classList.remove('visible');
-  
+  document.getElementById('progressWrap').classList.remove('visible');
+  hideError();
+  document.getElementById('step1').className = 'step-pill active';
+  document.getElementById('step2').className = 'step-pill';
+  document.getElementById('step3').className = 'step-pill';
   updateUI();
 }
 
-// Health check
-async function healthCheck() {
-  try {
-    const res = await fetch('/health');
-    if (res.ok) {
-      console.log('✅ Backend OK');
-    } else {
-      console.warn('⚠️ Backend responded with status:', res.status);
-    }
-  } catch (e) {
-    console.error('❌ Backend offline:', e);
-    showError('Servidor não disponível. Verifique sua conexão.');
+// ── Base Concretada ──
+setupDrop('dzBasePptx', 'fileBasePptx', file => {
+  if (!file.name.endsWith('.pptx')) { showError('O template deve ser .pptx', true); return; }
+  basePptxFile = file;
+  document.getElementById('dzBasePptx').classList.add('loaded');
+  document.getElementById('subBasePptx').textContent = file.name;
+  document.getElementById('badgeBasePptx').style.display = 'inline-flex';
+  document.getElementById('badgeBasePptx').innerHTML = `✓ ${formatSize(file.size)}`;
+  updateBaseBtn();
+});
+
+function updateBaseBtn() {
+  const btn = document.getElementById('btnProcessBase');
+  const txt = document.getElementById('btnBaseText');
+  const active = barramentos.filter(b => b !== null);
+  const allFilled = active.length > 0 && active.every(b => b.numero.trim() && b.barramento && b.poste && b.base);
+  if (!basePptxFile) {
+    btn.disabled = true;
+    txt.textContent = 'Selecione o template .pptx de base concretada';
+  } else if (active.length === 0) {
+    btn.disabled = true;
+    txt.textContent = 'Adicione pelo menos 1 barramento';
+  } else if (!allFilled) {
+    btn.disabled = true;
+    txt.textContent = 'Preencha o número e as 3 fotos de cada barramento';
+  } else {
+    btn.disabled = false;
+    txt.textContent = `🏗️ Gerar Base Concretada (${active.length} barramento${active.length > 1 ? 's' : ''})`;
   }
 }
 
-healthCheck();
+function addBarramento() {
+  const idx = barramentos.length;
+  barramentos.push({ numero: '', barramento: null, poste: null, base: null });
+  document.getElementById('barrCount').textContent = barramentos.length;
+  
+  const card = document.createElement('div');
+  card.className = 'barr-card';
+  card.id = `barr-card-${idx}`;
+  card.innerHTML = `
+    <div class="barr-card-header">
+      <div class="barr-num-badge">${barramentos.length}</div>
+      <input class="barr-input" type="text" placeholder="Número do Barramento (ex: 51099409)" oninput="barramentos[${idx}].numero = this.value; updateBaseBtn()" id="barr-input-${idx}">
+      <button class="btn-remove-barr" onclick="removeBarramento(${idx})">✕</button>
+    </div>
+    <div class="barr-photos">
+      ${makePhotoDrop(idx, 'barramento', '⚡ Barramento')}
+      ${makePhotoDrop(idx, 'poste', '🪵 Poste')}
+      ${makePhotoDrop(idx, 'base', '🏗️ Base')}
+    </div>
+  `;
+  document.getElementById('barrList').appendChild(card);
+  setupPhotoDrop(idx, 'barramento');
+  setupPhotoDrop(idx, 'poste');
+  setupPhotoDrop(idx, 'base');
+  updateBaseBtn();
+}
+
+function makePhotoDrop(idx, tipo, label) {
+  return `
+    <div class="photo-drop" id="drop-${idx}-${tipo}" onclick="document.getElementById('file-${idx}-${tipo}').click()">
+      <input type="file" id="file-${idx}-${tipo}" accept="image/*" style="display: none;">
+      <div class="photo-drop-icon">📷</div>
+      <img class="photo-preview" id="prev-${idx}-${tipo}" src="" alt="preview">
+      <div class="photo-drop-label">${label}</div>
+      <div class="photo-filename" id="fname-${idx}-${tipo}"></div>
+    </div>
+  `;
+}
+
+function setupPhotoDrop(idx, tipo) {
+  const dropEl = document.getElementById(`drop-${idx}-${tipo}`);
+  const input = document.getElementById(`file-${idx}-${tipo}`);
+  dropEl.addEventListener('dragover', e => { e.preventDefault(); dropEl.style.borderColor = 'var(--orange-primary)'; });
+  dropEl.addEventListener('dragleave', () => { dropEl.style.borderColor = ''; });
+  dropEl.addEventListener('drop', e => {
+    e.preventDefault();
+    dropEl.style.borderColor = '';
+    const file = e.dataTransfer.files[0];
+    if (file) loadPhotoFile(idx, tipo, file);
+  });
+  input.addEventListener('change', () => { if (input.files[0]) loadPhotoFile(idx, tipo, input.files[0]); });
+}
+
+function loadPhotoFile(idx, tipo, file) {
+  if (!file.type.startsWith('image/')) return;
+  barramentos[idx][tipo] = file;
+  const dropEl = document.getElementById(`drop-${idx}-${tipo}`);
+  const prev = document.getElementById(`prev-${idx}-${tipo}`);
+  const fname = document.getElementById(`fname-${idx}-${tipo}`);
+  dropEl.classList.add('loaded');
+  fname.textContent = file.name.length > 20 ? file.name.substring(0, 18) + '…' : file.name;
+  const reader = new FileReader();
+  reader.onload = e => { prev.src = e.target.result; };
+  reader.readAsDataURL(file);
+  updateBaseBtn();
+}
+
+function removeBarramento(idx) {
+  document.getElementById(`barr-card-${idx}`)?.remove();
+  barramentos[idx] = null;
+  const active = barramentos.filter(b => b !== null);
+  barramentos = active;
+  document.getElementById('barrCount').textContent = barramentos.length;
+  document.getElementById('barrList').innerHTML = '';
+  const saved = [...barramentos];
+  barramentos = [];
+  saved.forEach((b, i) => {
+    addBarramento();
+    if (b) {
+      barramentos[i].numero = b.numero;
+      barramentos[i].barramento = b.barramento;
+      barramentos[i].poste = b.poste;
+      barramentos[i].base = b.base;
+      document.getElementById(`barr-input-${i}`).value = b.numero;
+      ['barramento', 'poste', 'base'].forEach(tipo => {
+        if (b[tipo]) {
+          const drop = document.getElementById(`drop-${i}-${tipo}`);
+          const fname = document.getElementById(`fname-${i}-${tipo}`);
+          const prev = document.getElementById(`prev-${i}-${tipo}`);
+          drop.classList.add('loaded');
+          fname.textContent = b[tipo].name.length > 20 ? b[tipo].name.substring(0, 18) + '…' : b[tipo].name;
+          const reader = new FileReader();
+          reader.onload = e => { prev.src = e.target.result; };
+          reader.readAsDataURL(b[tipo]);
+          barramentos[i][tipo] = b[tipo];
+        }
+      });
+    }
+  });
+  updateBaseBtn();
+}
+
+async function processBase() {
+  if (!basePptxFile) return;
+  hideError(true);
+  document.getElementById('resultBase').classList.remove('visible');
+  document.getElementById('progressBase').classList.add('visible');
+  document.getElementById('btnProcessBase').disabled = true;
+  
+  let pct = 0;
+  const interval = setInterval(() => {
+    pct = Math.min(pct + 5, 90);
+    document.getElementById('progressBaseFill').style.width = pct + '%';
+  }, 300);
+  
+  const fd = new FormData();
+  fd.append('pptx', basePptxFile);
+  const active = barramentos.filter(b => b !== null);
+  active.forEach((b, i) => {
+    fd.append('numeros[]', b.numero.trim());
+    fd.append(`barramento_${i}`, b.barramento);
+    fd.append(`poste_${i}`, b.poste);
+    fd.append(`base_${i}`, b.base);
+  });
+  
+  try {
+    const resp = await fetch(`${API}/process-base`, { method: 'POST', body: fd });
+    clearInterval(interval);
+    document.getElementById('progressBaseFill').style.width = '100%';
+    if (!resp.ok) throw new Error('Erro ao processar');
+    const blob = await resp.blob();
+    if (baseBlobUrl) URL.revokeObjectURL(baseBlobUrl);
+    baseBlobUrl = URL.createObjectURL(blob);
+    const n = resp.headers.get('X-Barramentos') || active.length;
+    document.getElementById('resultBaseSub').textContent = `${n} barramento${n > 1 ? 's' : ''} inserido${n > 1 ? 's' : ''} com sucesso`;
+    document.getElementById('btnDownloadBase').href = baseBlobUrl;
+    document.getElementById('resultBase').classList.add('visible');
+  } catch (err) {
+    showError(err.message, true);
+  } finally {
+    document.getElementById('progressBase').classList.remove('visible');
+    document.getElementById('btnProcessBase').disabled = false;
+  }
+}
+
+function resetBase() {
+  basePptxFile = null;
+  barramentos = [];
+  if (baseBlobUrl) { URL.revokeObjectURL(baseBlobUrl); baseBlobUrl = null; }
+  document.getElementById('dzBasePptx').classList.remove('loaded');
+  document.getElementById('subBasePptx').innerHTML = 'Arraste ou clique para selecionar<br>Arquivo .pptx da base concretada';
+  document.getElementById('badgeBasePptx').style.display = 'none';
+  document.getElementById('fileBasePptx').value = '';
+  document.getElementById('barrList').innerHTML = '';
+  document.getElementById('barrCount').textContent = '0';
+  document.getElementById('resultBase').classList.remove('visible');
+  hideError(true);
+  updateBaseBtn();
+}
+
+// ── Debug ──
+function debugLog(msg, type) {
+  const log = document.getElementById('debugLog');
+  const colors = { ok: '#10B981', error: '#EF4444', info: '#F97316', muted: '#71717A' };
+  const icons = { ok: '✓', error: '✗', info: '→', muted: '·' };
+  const el = document.createElement('div');
+  el.style.color = colors[type] || '#fff';
+  el.textContent = new Date().toLocaleTimeString() + '  ' + (icons[type] || '') + '  ' + msg;
+  if (log.querySelector('span')) log.innerHTML = '';
+  log.appendChild(el);
+  log.scrollTop = log.scrollHeight;
+}
+
+async function runHealthCheck() {
+  debugLog('Testando conexão...', 'info');
+  try {
+    const r = await fetch('/health');
+    if (r.ok) {
+      const j = await r.json();
+      debugLog('Conectado! ' + j.message, 'ok');
+    } else {
+      debugLog('Erro: HTTP ' + r.status, 'error');
+    }
+  } catch (e) {
+    debugLog('Falha: ' + e.message, 'error');
+  }
+}
+
+window.addEventListener('load', () => setTimeout(runHealthCheck, 500));
 </script>
 </body>
 </html>
