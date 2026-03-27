@@ -20,6 +20,12 @@
       "dest": "app.py"
     }
   ],
+  "functions": {
+    "app.py": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  },
   "env": {
     "FLASK_ENV": "production"
   }
