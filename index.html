@@ -229,7 +229,7 @@
       <div><div class="spec-item"><span class="spec-label">Largura da foto</span><span class="spec-value">7,62 cm</span></div>
            <div class="spec-item"><span class="spec-label">Altura da foto</span><span class="spec-value">10,16 cm</span></div>
            <div class="spec-item"><span class="spec-label">Posicionamento</span><span class="spec-value">4 colunas</span></div>
-           <div class="spec-item"><span class="spec-label">Redimensionamento</span><span class="spec-value">Sem corte (bordas brancas)</span></div></div>
+           <div class="spec-item"><span class="spec-label">Redimensionamento</span><span class="spec-value">Crop inteligente (sem bordas)</span></div></div>
     </div>
   </div>
   <div class="footer">Rezende Energia · Gerência de Controle e Estratégia de Investimentos<br>Dados não são armazenados — processamento local seguro</div>
@@ -406,9 +406,9 @@ function addBarramento() {
   barramentos.push({ numero: '', barramento: null, poste: null, base: null });
   document.getElementById('barrCount').textContent = barramentos.length;
   const card = document.createElement('div'); card.className = 'barr-card'; card.id = `barr-card-${idx}`;
-  card.innerHTML = `<div class="barr-card-header"><div class="barr-num-badge">${barramentos.length}</div><input class="barr-input" type="text" placeholder="Número do Barramento (ex: 51099409)" oninput="barramentos[${idx}].numero = this.value; updateBaseBtn()" id="barr-input-${idx}"><button class="btn-remove-barr" onclick="removeBarramento(${idx})">✕</button></div><div class="barr-photos">${makePhotoDrop(idx,'barramento','⚡ Barramento')}${makePhotoDrop(idx,'poste','🪵 Poste')}${makePhotoDrop(idx,'base','🏗️ Base')}</div>`;
+  card.innerHTML = `<div class="barr-card-header"><div class="barr-num-badge">${barramentos.length}</div><input class="barr-input" type="text" placeholder="Número do Barramento (ex: 51099409)" oninput="barramentos[${idx}].numero = this.value; updateBaseBtn()" id="barr-input-${idx}"><button class="btn-remove-barr" onclick="removeBarramento(${idx})">✕</button></div><div class="barr-photos">${makePhotoDrop(idx,'poste','🪵 Poste')}${makePhotoDrop(idx,'barramento','⚡ Barramento')}${makePhotoDrop(idx,'base','🏗️ Base')}</div>`;
   document.getElementById('barrList').appendChild(card);
-  setupPhotoDrop(idx,'barramento'); setupPhotoDrop(idx,'poste'); setupPhotoDrop(idx,'base');
+  setupPhotoDrop(idx,'poste'); setupPhotoDrop(idx,'barramento'); setupPhotoDrop(idx,'base');
   updateBaseBtn();
 }
 function makePhotoDrop(idx,tipo,label) { return `<div class="photo-drop" id="drop-${idx}-${tipo}" onclick="document.getElementById('file-${idx}-${tipo}').click()"><input type="file" id="file-${idx}-${tipo}" accept="image/*" style="display: none;"><div class="photo-drop-icon">📷</div><img class="photo-preview" id="prev-${idx}-${tipo}" src="" alt="preview"><div class="photo-drop-label">${label}</div><div class="photo-filename" id="fname-${idx}-${tipo}"></div></div>`; }
@@ -434,7 +434,7 @@ function removeBarramento(idx) {
   document.getElementById('barrCount').textContent = barramentos.length;
   document.getElementById('barrList').innerHTML = '';
   const saved = [...barramentos]; barramentos = [];
-  saved.forEach((b,i) => { addBarramento(); if(b){ barramentos[i].numero = b.numero; barramentos[i].barramento = b.barramento; barramentos[i].poste = b.poste; barramentos[i].base = b.base; document.getElementById(`barr-input-${i}`).value = b.numero; ['barramento','poste','base'].forEach(t=>{ if(b[t]){ const drop=document.getElementById(`drop-${i}-${t}`); const fname=document.getElementById(`fname-${i}-${t}`); const prev=document.getElementById(`prev-${i}-${t}`); drop.classList.add('loaded'); fname.textContent=b[t].name.length>20?b[t].name.substring(0,18)+'…':b[t].name; const reader=new FileReader(); reader.onload=e=>{ prev.src=e.target.result; }; reader.readAsDataURL(b[t]); barramentos[i][t]=b[t]; } }); } });
+  saved.forEach((b,i) => { addBarramento(); if(b){ barramentos[i].numero = b.numero; barramentos[i].barramento = b.barramento; barramentos[i].poste = b.poste; barramentos[i].base = b.base; document.getElementById(`barr-input-${i}`).value = b.numero; ['poste','barramento','base'].forEach(t=>{ if(b[t]){ const drop=document.getElementById(`drop-${i}-${t}`); const fname=document.getElementById(`fname-${i}-${t}`); const prev=document.getElementById(`prev-${i}-${t}`); drop.classList.add('loaded'); fname.textContent=b[t].name.length>20?b[t].name.substring(0,18)+'…':b[t].name; const reader=new FileReader(); reader.onload=e=>{ prev.src=e.target.result; }; reader.readAsDataURL(b[t]); barramentos[i][t]=b[t]; } }); } });
   updateBaseBtn();
 }
 async function processBase() {
