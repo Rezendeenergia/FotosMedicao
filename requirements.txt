@@ -1,0 +1,5 @@
+Flask==2.3.3
+flask-cors==4.0.0
+python-pptx==0.6.21
+Pillow==10.0.0
+lxml==4.9.3
