@@ -2,17 +2,22 @@ import os
 import io
 import zipfile
 import copy
+import tempfile
 from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS
 from pptx import Presentation
 from pptx.oxml.ns import qn
 from lxml import etree
 from PIL import Image, ImageOps
+import sys
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app = Flask(__name__, static_folder=BASE_DIR)
 CORS(app, expose_headers=["X-Photos-Used", "X-Slides-Filled"])
+
+# Aumentar limite de upload para 100MB (Vercel ainda pode limitar a 50MB)
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
 
 # ── Dimensões alvo ──
 TARGET_W_CM  = 7.62
@@ -41,13 +46,17 @@ def health():
 
 # ── Utilitários de imagem ──
 def resize_photo(img_bytes: bytes) -> bytes:
-    img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-    target_w_px = int(TARGET_W_CM / 2.54 * 150)
-    target_h_px = int(TARGET_H_CM / 2.54 * 150)
-    img = ImageOps.fit(img, (target_w_px, target_h_px), method=Image.LANCZOS)
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=90)
-    return buf.getvalue()
+    try:
+        img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        target_w_px = int(TARGET_W_CM / 2.54 * 150)
+        target_h_px = int(TARGET_H_CM / 2.54 * 150)
+        img = ImageOps.fit(img, (target_w_px, target_h_px), method=Image.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=85, optimize=True)
+        return buf.getvalue()
+    except Exception as e:
+        print(f"Erro ao redimensionar imagem: {e}")
+        raise
 
 def add_photo_to_slide(slide, slot: dict, img_bytes: bytes):
     """Remove o placeholder e insere a foto no slot correto."""
@@ -88,14 +97,10 @@ def add_photo_to_slide(slide, slot: dict, img_bytes: bytes):
 
 # ── Gerenciamento dinâmico de slides ──
 def duplicate_slide(prs: Presentation, source_index: int):
-    """
-    Clona o slide no source_index (incluindo fundo e shapes).
-    Adiciona o clone ao final da apresentação.
-    """
+    """Clona o slide no source_index (incluindo fundo e shapes)."""
     source_slide = prs.slides[source_index]
     new_slide = prs.slides.add_slide(source_slide.slide_layout)
 
-    # Substituir shapes do novo slide pelos do template
     sp_tree_src = copy.deepcopy(source_slide.shapes._spTree)
     sp_tree_new = new_slide.shapes._spTree
     for child in list(sp_tree_new):
@@ -103,7 +108,6 @@ def duplicate_slide(prs: Presentation, source_index: int):
     for child in list(sp_tree_src):
         sp_tree_new.append(child)
 
-    # Copiar background (gradiente laranja do template)
     bg_src = source_slide._element.find(f'{{{P_NS}}}cSld/{{{P_NS}}}bg')
     if bg_src is not None:
         bg_copy = copy.deepcopy(bg_src)
@@ -113,40 +117,32 @@ def duplicate_slide(prs: Presentation, source_index: int):
             cSld.remove(existing_bg)
         cSld.insert(0, bg_copy)
 
-    # Compartilhar relacionamentos de imagem (logos)
     for rel in source_slide.part.rels.values():
         if 'image' in rel.reltype:
             new_slide.part.rels._rels[rel.rId] = rel
 
     return new_slide
 
-
 def remove_last_slide(prs: Presentation):
     """Remove o último slide da apresentação."""
     sldIdLst = prs.slides._sldIdLst
-    sldIdLst.remove(sldIdLst[-1])
-
+    if len(sldIdLst) > 0:
+        sldIdLst.remove(sldIdLst[-1])
 
 def process_pptx(pptx_bytes: bytes, photos: list) -> bytes:
-    """
-    Lógica dinâmica:
-    - Menos de 100 fotos: remove slides de foto vazios
-    - Mais de 100 fotos: cria novos slides clonando o slide 2
-    """
+    """Lógica dinâmica com slides."""
     prs = Presentation(io.BytesIO(pptx_bytes))
 
-    n_photos        = len(photos)
-    n_slides_needed = (n_photos + 3) // 4        # slides de foto necessários
-    n_slides_have   = len(list(prs.slides)) - 1  # slides de foto no template (excl. capa)
+    n_photos = len(photos)
+    n_slides_needed = (n_photos + 3) // 4
+    n_slides_have = len(list(prs.slides)) - 1
 
-    # ── Expandir se precisar de mais slides ──
     if n_slides_needed > n_slides_have:
         for _ in range(n_slides_needed - n_slides_have):
-            duplicate_slide(prs, 1)  # sempre clona o slide 2 (índice 1)
+            duplicate_slide(prs, 1)
 
-    # ── Preencher fotos ──
-    all_slides  = list(prs.slides)
-    photo_idx   = 0
+    all_slides = list(prs.slides)
+    photo_idx = 0
     slides_used = 0
 
     for slide in all_slides[1:]:
@@ -160,7 +156,6 @@ def process_pptx(pptx_bytes: bytes, photos: list) -> bytes:
             photo_idx += 1
         slides_used += 1
 
-    # ── Remover slides de foto vazios ──
     total_slides_now = len(list(prs.slides))
     slides_to_remove = total_slides_now - 1 - slides_used
     for _ in range(slides_to_remove):
@@ -169,7 +164,6 @@ def process_pptx(pptx_bytes: bytes, photos: list) -> bytes:
     out = io.BytesIO()
     prs.save(out)
     return out.getvalue()
-
 
 def extract_photos_from_zip(zip_bytes: bytes) -> list:
     VALID_EXT = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tiff", ".tif"}
@@ -181,62 +175,74 @@ def extract_photos_from_zip(zip_bytes: bytes) -> list:
             and not n.startswith("__MACOSX")
             and not os.path.basename(n).startswith(".")
         ])
-        for name in names:
+        for name in names[:100]:  # Limitar a 100 fotos
             photos.append((os.path.basename(name), zf.read(name)))
     return photos
-
 
 # ── Rotas API ──
 @app.route("/process", methods=["POST"])
 def process():
-    if "pptx" not in request.files:
-        return jsonify({"error": "Arquivo .pptx não enviado"}), 400
-    if "zip" not in request.files:
-        return jsonify({"error": "Arquivo .zip não enviado"}), 400
-
-    pptx_file = request.files["pptx"]
-    zip_file  = request.files["zip"]
-
-    if not pptx_file.filename.lower().endswith(".pptx"):
-        return jsonify({"error": "O arquivo deve ser .pptx"}), 400
-    if not zip_file.filename.lower().endswith(".zip"):
-        return jsonify({"error": "O pacote de fotos deve ser .zip"}), 400
-
-    pptx_bytes = pptx_file.read()
-    zip_bytes  = zip_file.read()
-
     try:
+        if "pptx" not in request.files:
+            return jsonify({"error": "Arquivo .pptx não enviado"}), 400
+        if "zip" not in request.files:
+            return jsonify({"error": "Arquivo .zip não enviado"}), 400
+
+        pptx_file = request.files["pptx"]
+        zip_file = request.files["zip"]
+
+        if not pptx_file.filename.lower().endswith(".pptx"):
+            return jsonify({"error": "O arquivo deve ser .pptx"}), 400
+        if not zip_file.filename.lower().endswith(".zip"):
+            return jsonify({"error": "O pacote de fotos deve ser .zip"}), 400
+
+        # Verificar tamanhos
+        pptx_file.seek(0, 2)
+        pptx_size = pptx_file.tell()
+        pptx_file.seek(0)
+        
+        zip_file.seek(0, 2)
+        zip_size = zip_file.tell()
+        zip_file.seek(0)
+        
+        if pptx_size > 50 * 1024 * 1024:
+            return jsonify({"error": "Arquivo PPTX muito grande (máx 50MB)"}), 400
+        if zip_size > 50 * 1024 * 1024:
+            return jsonify({"error": "Arquivo ZIP muito grande (máx 50MB)"}), 400
+
+        pptx_bytes = pptx_file.read()
+        zip_bytes = zip_file.read()
+
         photos = extract_photos_from_zip(zip_bytes)
-    except Exception as e:
-        return jsonify({"error": f"Erro ao ler o ZIP: {str(e)}"}), 400
+        
+        if not photos:
+            return jsonify({"error": "Nenhuma imagem encontrada no ZIP"}), 400
 
-    if not photos:
-        return jsonify({"error": "Nenhuma imagem encontrada no ZIP"}), 400
-
-    try:
         result_bytes = process_pptx(pptx_bytes, photos)
+
+        n_photos = len(photos)
+        n_slides = (n_photos + 3) // 4
+
+        response = send_file(
+            io.BytesIO(result_bytes),
+            mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            as_attachment=True,
+            download_name="relatorio_preenchido.pptx",
+        )
+        response.headers["X-Photos-Used"] = str(n_photos)
+        response.headers["X-Slides-Filled"] = str(n_slides)
+        return response
+        
     except Exception as e:
         import traceback
-        return jsonify({"error": f"Erro ao processar PPTX: {str(e)}", "trace": traceback.format_exc()}), 500
-
-    n_photos = len(photos)
-    n_slides  = (n_photos + 3) // 4
-
-    response = send_file(
-        io.BytesIO(result_bytes),
-        mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        as_attachment=True,
-        download_name="relatorio_preenchido.pptx",
-    )
-    response.headers["X-Photos-Used"]   = str(n_photos)
-    response.headers["X-Slides-Filled"] = str(n_slides)
-    return response
-
+        print(f"Erro: {e}")
+        print(traceback.format_exc())
+        return jsonify({"error": f"Erro ao processar: {str(e)}"}), 500
 
 @app.route("/validate", methods=["POST"])
 def validate():
     result = {}
-
+    
     if "pptx" in request.files:
         f = request.files["pptx"]
         try:
@@ -244,7 +250,7 @@ def validate():
             result["pptx"] = {"ok": True, "slides": len(prs.slides), "name": f.filename}
         except Exception as e:
             result["pptx"] = {"ok": False, "error": str(e)}
-
+    
     if "zip" in request.files:
         f = request.files["zip"]
         try:
@@ -257,15 +263,9 @@ def validate():
             }
         except Exception as e:
             result["zip"] = {"ok": False, "error": str(e)}
-
+    
     return jsonify(result)
 
-
 if __name__ == "__main__":
-    print("=" * 55)
-    print("  Rezende Energia — Automação de Relatório Fotográfico")
-    print("=" * 55)
-    print("  Acesse no navegador: http://127.0.0.1:5050")
-    print("  Para encerrar: Ctrl + C")
-    print("=" * 55)
-    app.run(debug=True, port=5050, host="127.0.0.1")
+    port = int(os.environ.get("PORT", 5050))
+    app.run(debug=False, port=port, host="0.0.0.0")
