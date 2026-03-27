@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Rezende Energia · Relatório Fotográfico</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet"/>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  :root {
+    --bg-primary: #0A0A0F;
+    --bg-secondary: #121217;
+    --bg-card: #1A1A24;
+    --border: #2A2A35;
+    --orange-primary: #F97316;
+    --orange-light: #FFB347;
+    --orange-glow: rgba(249, 115, 22, 0.2);
+    --green-success: #10B981;
+    --red-error: #EF4444;
+    --text-primary: #FFFFFF;
+    --text-secondary: #A1A1AA;
+    --text-muted: #71717A;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+  }
+
+  body {
+    background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+
+  /* Animated Background */
+  .bg-animation {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    overflow: hidden;
+  }
+
+  .bg-animation::before {
+    content: '';
+    position: absolute;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at 20% 50%, rgba(249, 115, 22, 0.08) 0%, transparent 50%);
+    animation: float 20s ease-in-out infinite;
+  }
+
+  .bg-animation::after {
+    content: '';
+    position: absolute;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at 80% 80%, rgba(249, 115, 22, 0.05) 0%, transparent 50%);
+    animation: float 15s ease-in-out infinite reverse;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    33% { transform: translate(-5%, -5%) rotate(2deg); }
+    66% { transform: translate(5%, 3%) rotate(-2deg); }
+  }
+
+  /* Main Container */
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 3rem;
+    animation: fadeInUp 0.6s ease-out;
+  }
+
+  .logo {
+    width: 70px;
+    height: 70px;
+    background: linear-gradient(135deg, var(--orange-primary), var(--orange-light));
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem;
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--bg-primary);
+    box-shadow: 0 10px 30px var(--orange-glow);
+    transition: transform 0.3s ease;
+  }
+
+  .logo:hover {
+    transform: scale(1.05);
+  }
+
+  h1 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 800;
+    background: linear-gradient(135deg, #fff 30%, var(--orange-light));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.5rem;
+  }
+
+  .subtitle {
+    color: var(--text-secondary);
+    font-size: 1rem;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  /* Stats Cards */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .stat-card {
+    background: rgba(26, 26, 36, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    text-align: center;
+    transition: all 0.3s ease;
+  }
+
+  .stat-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--orange-primary);
+    box-shadow: 0 8px 20px var(--orange-glow);
+  }
+
+  .stat-value {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--orange-primary);
+    margin-bottom: 0.25rem;
+  }
+
+  .stat-label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+  }
+
+  /* Dropzone Grid */
+  .dropzone-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .dropzone {
+    background: var(--bg-card);
+    border: 2px dashed var(--border);
+    border-radius: var(--radius-xl);
+    padding: 2rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .dropzone::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, var(--orange-primary), transparent);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .dropzone:hover {
+    border-color: var(--orange-primary);
+    transform: translateY(-4px);
+  }
+
+  .dropzone:hover::before {
+    opacity: 0.05;
+  }
+
+  .dropzone.loaded {
+    border-color: var(--green-success);
+    border-style: solid;
+    background: rgba(16, 185, 129, 0.05);
+  }
+
+  .dz-content {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+  }
+
+  .dz-icon {
+    width: 60px;
+    height: 60px;
+    background: rgba(249, 115, 22, 0.1);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+    transition: all 0.3s ease;
+  }
+
+  .dropzone:hover .dz-icon {
+    transform: scale(1.1);
+    background: rgba(249, 115, 22, 0.2);
+  }
+
+  .dz-label {
+    font-weight: 600;
+    font-size: 1.125rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .dz-sub {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+  }
+
+  .dz-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    background: rgba(16, 185, 129, 0.1);
+    border-radius: 20px;
+    font-size: 0.75rem;
+    color: var(--green-success);
+  }
+
+  /* Process Button */
+  .btn-process {
+    width: 100%;
+    padding: 1rem;
+    background: linear-gradient(135deg, var(--orange-primary), var(--orange-light));
+    border: none;
+    border-radius: var(--radius-lg);
+    color: var(--bg-primary);
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-process::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: left 0.5s ease;
+  }
+
+  .btn-process:hover::before {
+    left: 100%;
+  }
+
+  .btn-process:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Progress Section */
+  .progress-section {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    display: none;
+  }
+
+  .progress-section.visible {
+    display: block;
+    animation: fadeInUp 0.4s ease-out;
+  }
+
+  .progress-bar {
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 1rem 0;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--orange-primary), var(--orange-light));
+    border-radius: 4px;
+    width: 0%;
+    transition: width 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .progress-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    animation: shimmer 1s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  .steps-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+  }
+
+  .step.active {
+    color: var(--orange-primary);
+  }
+
+  .step.done {
+    color: var(--green-success);
+  }
+
+  .step-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  /* Result Card */
+  .result-card {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05));
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    display: none;
+  }
+
+  .result-card.visible {
+    display: block;
+    animation: fadeInUp 0.4s ease-out;
+  }
+
+  .result-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .result-icon {
+    width: 48px;
+    height: 48px;
+    background: rgba(16, 185, 129, 0.2);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+  }
+
+  .result-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--green-success);
+  }
+
+  .btn-download {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: var(--radius-md);
+    color: var(--green-success);
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+  }
+
+  .btn-download:hover {
+    background: rgba(16, 185, 129, 0.2);
+    transform: translateY(-2px);
+  }
+
+  .btn-reset {
+    margin-top: 1rem;
+    padding: 0.5rem 1rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .btn-reset:hover {
+    border-color: var(--orange-primary);
+    color: var(--orange-primary);
+  }
+
+  /* Error Card */
+  .error-card {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: var(--radius-lg);
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    display: none;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .error-card.visible {
+    display: flex;
+    animation: shake 0.4s ease-out;
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+  }
+
+  /* Specs Card */
+  .specs-card {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .specs-title {
+    font-weight: 700;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--orange-primary);
+    display: inline-block;
+  }
+
+  .specs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+  }
+
+  .spec-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .spec-label {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+  }
+
+  .spec-value {
+    font-weight: 600;
+    color: var(--orange-primary);
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+  }
+
+  /* Animations */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .container {
+      padding: 1rem;
+    }
+
+    .dropzone-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="bg-animation"></div>
+
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">RE</div>
+    <h1>Relatório Fotográfico</h1>
+    <p class="subtitle">Automação inteligente para documentos de obra</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-value" id="statPhotos">—</div>
+      <div class="stat-label">Fotos detectadas</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="statSlides">—</div>
+      <div class="stat-label">Slides a preencher</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">7,62 × 10,16</div>
+      <div class="stat-label">Tamanho da foto (cm)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">4/slide</div>
+      <div class="stat-label">Fotos por slide</div>
+    </div>
+  </div>
+
+  <!-- Dropzones -->
+  <div class="dropzone-grid">
+    <div class="dropzone" id="dzPptx">
+      <div class="dz-content">
+        <div class="dz-icon">📄</div>
+        <div class="dz-label">Template PowerPoint</div>
+        <div class="dz-sub">Arraste ou clique para selecionar<br/>Arquivo .pptx</div>
+        <div class="dz-badge" id="badgePptx" style="display: none;"></div>
+      </div>
+      <input type="file" id="filePptx" accept=".pptx" style="display: none;">
+    </div>
+
+    <div class="dropzone" id="dzZip">
+      <div class="dz-content">
+        <div class="dz-icon">📦</div>
+        <div class="dz-label">Pacote de Fotos</div>
+        <div class="dz-sub">Arraste ou clique para selecionar<br/>Arquivo .zip com as fotos</div>
+        <div class="dz-badge" id="badgeZip" style="display: none;"></div>
+      </div>
+      <input type="file" id="fileZip" accept=".zip" style="display: none;">
+    </div>
+  </div>
+
+  <!-- Process Button -->
+  <button class="btn-process" id="btnProcess" disabled onclick="processFiles()">
+    <span>⚡</span>
+    <span id="btnText">Selecione os arquivos</span>
+  </button>
+
+  <!-- Progress -->
+  <div class="progress-section" id="progressSection">
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <div class="steps-list" id="stepsList">
+      <div class="step" id="step1">
+        <div class="step-dot"></div>
+        <span>Validando arquivos</span>
+      </div>
+      <div class="step" id="step2">
+        <div class="step-dot"></div>
+        <span>Extraindo fotos do ZIP</span>
+      </div>
+      <div class="step" id="step3">
+        <div class="step-dot"></div>
+        <span>Redimensionando imagens</span>
+      </div>
+      <div class="step" id="step4">
+        <div class="step-dot"></div>
+        <span>Inserindo fotos nos slides</span>
+      </div>
+      <div class="step" id="step5">
+        <div class="step-dot"></div>
+        <span>Gerando arquivo final</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div class="error-card" id="errorCard">
+    <span>⚠️</span>
+    <span id="errorText"></span>
+  </div>
+
+  <!-- Result -->
+  <div class="result-card" id="resultCard">
+    <div class="result-header">
+      <div class="result-icon">✓</div>
+      <div>
+        <div class="result-title">Relatório gerado com sucesso!</div>
+        <div class="stat-label" id="resultSub"></div>
+      </div>
+    </div>
+    <a class="btn-download" id="btnDownload" href="#" download="relatorio_preenchido.pptx">
+      📥 Baixar relatório
+    </a>
+    <button class="btn-reset" onclick="resetAll()">
+      🔄 Processar novo relatório
+    </button>
+  </div>
+
+  <!-- Specs -->
+  <div class="specs-card">
+    <div class="specs-title">Especificações Técnicas</div>
+    <div class="specs-grid">
+      <div>
+        <div class="spec-item">
+          <span class="spec-label">Formato do slide</span>
+          <span class="spec-value">33,87 × 19,05 cm</span>
+        </div>
+        <div class="spec-item">
+          <span class="spec-label">Resolução das fotos</span>
+          <span class="spec-value">150 DPI</span>
+        </div>
+        <div class="spec-item">
+          <span class="spec-label">Redimensionamento</span>
+          <span class="spec-value">Crop central</span>
+        </div>
+      </div>
+      <div>
+        <div class="spec-item">
+          <span class="spec-label">Slides disponíveis</span>
+          <span class="spec-value">2 a 26</span>
+        </div>
+        <div class="spec-item">
+          <span class="spec-label">Capacidade máxima</span>
+          <span class="spec-value">100 fotos</span>
+        </div>
+        <div class="spec-item">
+          <span class="spec-label">Formato suportado</span>
+          <span class="spec-value">JPG, PNG, WEBP</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>Rezende Energia · Gerência de Controle e Estratégia de Investimentos</p>
+    <p style="margin-top: 0.5rem;">Dados processados localmente · Nenhuma informação é armazenada</p>
+  </div>
+</div>
+
+<script>
+let pptxFile = null, zipFile = null, blobUrl = null;
+
+// Setup dropzones
+function setupDropzone(dzId, inputId, onFile) {
+  const dz = document.getElementById(dzId);
+  const input = document.getElementById(inputId);
+
+  dz.onclick = () => input.click();
+
+  dz.ondragover = (e) => {
+    e.preventDefault();
+    dz.style.borderColor = 'var(--orange-primary)';
+  };
+
+  dz.ondragleave = () => {
+    dz.style.borderColor = '';
+  };
+
+  dz.ondrop = (e) => {
+    e.preventDefault();
+    dz.style.borderColor = '';
+    const file = e.dataTransfer.files[0];
+    if (file) onFile(file);
+  };
+
+  input.onchange = () => {
+    if (input.files[0]) onFile(input.files[0]);
+  };
+}
+
+setupDropzone('dzPptx', 'filePptx', (file) => {
+  if (!file.name.endsWith('.pptx')) {
+    showError('O template deve ser um arquivo .pptx');
+    return;
+  }
+  pptxFile = file;
+  const dz = document.getElementById('dzPptx');
+  dz.classList.add('loaded');
+  const badge = document.getElementById('badgePptx');
+  badge.style.display = 'inline-flex';
+  badge.innerHTML = `✓ ${(file.size / 1024 / 1024).toFixed(1)} MB`;
+  updateUI();
+});
+
+setupDropzone('dzZip', 'fileZip', async (file) => {
+  if (!file.name.endsWith('.zip')) {
+    showError('O pacote de fotos deve ser um arquivo .zip');
+    return;
+  }
+  zipFile = file;
+  const dz = document.getElementById('dzZip');
+  dz.classList.add('loaded');
+  const badge = document.getElementById('badgeZip');
+  badge.style.display = 'inline-flex';
+  badge.innerHTML = `✓ ${(file.size / 1024 / 1024).toFixed(1)} MB`;
+  updateUI();
+
+  // Validate ZIP
+  const fd = new FormData();
+  fd.append('zip', file);
+  try {
+    const res = await fetch('/validate', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.zip && data.zip.ok) {
+      const n = Math.min(data.zip.photos, 100);
+      document.getElementById('statPhotos').textContent = n;
+      document.getElementById('statSlides').textContent = Math.ceil(n / 4);
+    }
+  } catch (e) {
+    console.error('Validation error:', e);
+  }
+});
+
+function updateUI() {
+  const btn = document.getElementById('btnProcess');
+  const btnText = document.getElementById('btnText');
+
+  if (pptxFile && zipFile) {
+    btn.disabled = false;
+    btnText.textContent = '✨ Gerar Relatório Fotográfico';
+  } else if (pptxFile) {
+    btn.disabled = true;
+    btnText.textContent = '📦 Adicione o ZIP com as fotos';
+  } else if (zipFile) {
+    btn.disabled = true;
+    btnText.textContent = '📄 Adicione o template PPTX';
+  } else {
+    btn.disabled = true;
+    btnText.textContent = '📁 Selecione os arquivos';
+  }
+}
+
+function showError(msg) {
+  document.getElementById('errorText').textContent = msg;
+  document.getElementById('errorCard').classList.add('visible');
+  setTimeout(() => {
+    document.getElementById('errorCard').classList.remove('visible');
+  }, 5000);
+}
+
+function setProgress(stepIndex) {
+  const steps = ['step1', 'step2', 'step3', 'step4', 'step5'];
+  const percentages = [10, 25, 55, 85, 100];
+
+  steps.forEach((step, i) => {
+    const el = document.getElementById(step);
+    if (i < stepIndex) {
+      el.className = 'step done';
+    } else if (i === stepIndex) {
+      el.className = 'step active';
+    } else {
+      el.className = 'step';
+    }
+  });
+
+  document.getElementById('progressFill').style.width = percentages[stepIndex] + '%';
+}
+
+async function processFiles() {
+  if (!pptxFile || !zipFile) return;
+
+  document.getElementById('progressSection').classList.add('visible');
+  document.getElementById('resultCard').classList.remove('visible');
+  document.getElementById('btnProcess').disabled = true;
+
+  const fd = new FormData();
+  fd.append('pptx', pptxFile);
+  fd.append('zip', zipFile);
+
+  try {
+    setProgress(0);
+    await new Promise(r => setTimeout(r, 300));
+    setProgress(1);
+    await new Promise(r => setTimeout(r, 300));
+    setProgress(2);
+
+    const response = await fetch('/process', { method: 'POST', body: fd });
+
+    setProgress(3);
+    await new Promise(r => setTimeout(r, 300));
+    setProgress(4);
+
+    if (!response.ok) {
+      throw new Error('Erro ao processar o relatório');
+    }
+
+    const photosUsed = response.headers.get('X-Photos-Used') || '?';
+    const slidesFilled = response.headers.get('X-Slides-Filled') || '?';
+    const blob = await response.blob();
+
+    if (blobUrl) URL.revokeObjectURL(blobUrl);
+    blobUrl = URL.createObjectURL(blob);
+
+    document.getElementById('resultSub').textContent = `${photosUsed} fotos inseridas em ${slidesFilled} slides`;
+    document.getElementById('btnDownload').href = blobUrl;
+    document.getElementById('resultCard').classList.add('visible');
+
+  } catch (error) {
+    showError(error.message);
+  } finally {
+    document.getElementById('progressSection').classList.remove('visible');
+    document.getElementById('btnProcess').disabled = false;
+  }
+}
+
+function resetAll() {
+  pptxFile = null;
+  zipFile = null;
+  if (blobUrl) URL.revokeObjectURL(blobUrl);
+
+  document.getElementById('dzPptx').classList.remove('loaded');
+  document.getElementById('dzZip').classList.remove('loaded');
+  document.getElementById('badgePptx').style.display = 'none';
+  document.getElementById('badgeZip').style.display = 'none';
+  document.getElementById('filePptx').value = '';
+  document.getElementById('fileZip').value = '';
+  document.getElementById('statPhotos').textContent = '—';
+  document.getElementById('statSlides').textContent = '—';
+  document.getElementById('resultCard').classList.remove('visible');
+  document.getElementById('errorCard').classList.remove('visible');
+
+  updateUI();
+}
+
+// Health check
+async function healthCheck() {
+  try {
+    const res = await fetch('/health');
+    if (res.ok) {
+      console.log('✅ Backend OK');
+    }
+  } catch (e) {
+    console.error('❌ Backend offline:', e);
+  }
+}
+
+healthCheck();
+</script>
+</body>
+</html>
