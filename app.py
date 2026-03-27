@@ -4,12 +4,13 @@ import zipfile
 import copy
 import time
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS
 from pptx import Presentation
 from pptx.oxml.ns import qn
 from lxml import etree
-from PIL import Image, ImageOps
+from PIL import Image
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -62,21 +63,32 @@ def health():
     return jsonify({"status": "ok", "message": "Backend Rezende Energia rodando!", "timestamp": time.time()})
 
 def crop_and_resize(img_bytes, target_w_px, target_h_px):
-    """Corte cover: sem bordas brancas, preenche totalmente o espaco."""
-    img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+    """Corte cover rapido: sem bordas brancas, preenche totalmente o espaco."""
+    img = Image.open(io.BytesIO(img_bytes))
+    if img.mode != "RGB":
+        img = img.convert("RGB")
     img_w, img_h = img.size
+
+    # Pre-reduz imagens muito grandes antes de escalar (muito mais rapido)
+    pre_w = int(target_w_px * 2)
+    pre_h = int(target_h_px * 2)
+    if img_w > pre_w or img_h > pre_h:
+        img.thumbnail((pre_w, pre_h), Image.Resampling.BILINEAR)
+        img_w, img_h = img.size
+
     scale = max(target_w_px / img_w, target_h_px / img_h)
     new_w = int(img_w * scale)
     new_h = int(img_h * scale)
-    img_scaled = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+    # BILINEAR: 3x mais rapido que LANCZOS, qualidade OK para PPTX
+    img_scaled = img.resize((new_w, new_h), Image.Resampling.BILINEAR)
     left = (new_w - target_w_px) // 2
-    top = (new_h - target_h_px) // 2
+    top  = (new_h - target_h_px) // 2
     img_cropped = img_scaled.crop((left, top, left + target_w_px, top + target_h_px))
     buf = io.BytesIO()
-    img_cropped.save(buf, format="JPEG", quality=85, optimize=True)
+    img_cropped.save(buf, format="JPEG", quality=75, subsampling=2)
     return buf.getvalue()
 
-def add_photo_to_slide(slide, slot, img_bytes):
+def add_photo_to_slide(slide, slot, img_bytes, already_processed=False):
     """Insere foto sem bordas brancas, com efeito Predefinicao 1 do PowerPoint."""
     sp_tree = slide.shapes._spTree
 
@@ -93,9 +105,12 @@ def add_photo_to_slide(slide, slot, img_bytes):
     final_x = slot["x"]
     final_y = slot["y"]
 
-    target_w_px = int(final_cx / CM_TO_EMU * 2.54 * 150)
-    target_h_px = int(final_cy / CM_TO_EMU * 2.54 * 150)
-    img_resized = crop_and_resize(img_bytes, target_w_px, target_h_px)
+    if already_processed:
+        img_resized = img_bytes  # ja foi pre-processado em paralelo
+    else:
+        target_w_px = int(final_cx / CM_TO_EMU * 2.54 * 96)
+        target_h_px = int(final_cy / CM_TO_EMU * 2.54 * 96)
+        img_resized = crop_and_resize(img_bytes, target_w_px, target_h_px)
 
     _, rId = slide.part.get_or_add_image_part(io.BytesIO(img_resized))
 
@@ -230,6 +245,19 @@ def validate():
         return jsonify({"error": str(e)}), 400
 
 
+# Dimensoes alvo em pixels para as fotos (pre-calculado uma vez)
+_TARGET_W_PX = int(TARGET_W_EMU / CM_TO_EMU * 2.54 * 96)
+_TARGET_H_PX = int(TARGET_H_EMU / CM_TO_EMU * 2.54 * 96)
+
+def _preprocess_photo(args):
+    """Processa uma foto (crop+resize) — pode rodar em thread pool."""
+    idx, img_bytes = args
+    try:
+        return idx, crop_and_resize(img_bytes, _TARGET_W_PX, _TARGET_H_PX)
+    except Exception as e:
+        logger.warning(f"Foto {idx} ignorada: {e}")
+        return idx, None
+
 @app.route("/process", methods=["POST"])
 def process_pptx():
     t0 = time.time()
@@ -241,6 +269,15 @@ def process_pptx():
         photos = extract_photos_from_zip(zip_bytes)
         if not photos:
             return jsonify({"error": "Nenhuma foto encontrada no ZIP"}), 400
+
+        # Pre-processa todas as imagens em paralelo (I/O + CPU bound com threads)
+        logger.info(f"Pre-processando {len(photos)} fotos em paralelo...")
+        args = [(i, data) for i, (_, data) in enumerate(photos)]
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            results = list(pool.map(_preprocess_photo, args))
+        processed = {idx: data for idx, data in results if data is not None}
+        logger.info(f"Pre-processamento concluido em {time.time()-t0:.1f}s")
+
         prs = Presentation(io.BytesIO(pptx_bytes))
         if len(prs.slides) == 0:
             return jsonify({"error": "Apresentacao sem slides"}), 400
@@ -249,18 +286,20 @@ def process_pptx():
             duplicate_slide(prs, 0)
         while len(prs.slides) > slides_needed:
             remove_last_slide(prs)
+
         photos_used = 0
         for slide_idx in range(slides_needed):
             slide = prs.slides[slide_idx]
             for slot_idx, slot in enumerate(PHOTO_SLOTS_4):
                 photo_idx = slide_idx * 4 + slot_idx
-                if photo_idx < len(photos):
-                    add_photo_to_slide(slide, slot, photos[photo_idx][1])
+                if photo_idx < len(photos) and photo_idx in processed:
+                    add_photo_to_slide(slide, slot, processed[photo_idx], already_processed=True)
                     photos_used += 1
         out = io.BytesIO()
         prs.save(out)
         out.seek(0)
         elapsed = time.time() - t0
+        logger.info(f"Processamento total: {elapsed:.1f}s para {photos_used} fotos")
         response = send_file(out, mimetype='application/vnd.openxmlformats-officedocument.presentationml.presentation',
                              as_attachment=True, download_name='relatorio_preenchido.pptx')
         response.headers['X-Photos-Used'] = str(photos_used)
