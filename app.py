@@ -151,28 +151,25 @@ def set_barramento_number(slide, numero):
 
 
 def duplicate_slide(prs, slide_index):
-    """Duplica slide corretamente usando a API interna do python-pptx."""
+    """Duplica slide corretamente usando SlidePart do python-pptx."""
     from pptx.opc.packuri import PackURI
-    from pptx.opc.package import Part
+    from pptx.parts.slide import SlidePart
 
     template = prs.slides[slide_index]
 
-    # Copia profunda do XML do slide template
-    xml_str = etree.tostring(template._element, xml_declaration=True,
-                              encoding='UTF-8', standalone=True)
-    new_xml = copy.deepcopy(etree.fromstring(xml_str))
+    # Cópia profunda do elemento XML do slide
+    new_element = copy.deepcopy(template._element)
 
-    # Determina partname único para o novo slide
+    # Determina partname único
     existing = [prs.slides[i].part.partname for i in range(len(prs.slides))]
     idx = len(prs.slides) + 1
     while PackURI(f'/ppt/slides/slide{idx}.xml') in existing:
         idx += 1
     new_partname = PackURI(f'/ppt/slides/slide{idx}.xml')
 
-    # Cria o novo Part com o XML copiado
-    blob = etree.tostring(new_xml, xml_declaration=True, encoding='UTF-8', standalone=True)
-    new_part = Part(new_partname, template.part.content_type,
-                    template.part.package, blob)
+    # Cria SlidePart (não Part base) — necessário para ter o atributo .slide
+    new_part = SlidePart(new_partname, template.part.content_type,
+                         template.part.package, new_element)
 
     # Copia todas as relações (layout, imagens, etc.)
     for rel in template.part.rels.values():
