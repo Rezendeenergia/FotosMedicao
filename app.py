@@ -151,24 +151,60 @@ def set_barramento_number(slide, numero):
 
 
 def duplicate_slide(prs, slide_index):
+    """Duplica slide corretamente usando a API interna do python-pptx."""
+    from pptx.opc.packuri import PackURI
+    from pptx.opc.package import Part
+
     template = prs.slides[slide_index]
-    blank_layout = template.slide_layout
-    prs.slides.add_slide(blank_layout)
-    new_slide = prs.slides[-1]
-    new_slide._element.getparent().replace(new_slide._element, copy.deepcopy(template._element))
+
+    # Copia profunda do XML do slide template
+    xml_str = etree.tostring(template._element, xml_declaration=True,
+                              encoding='UTF-8', standalone=True)
+    new_xml = copy.deepcopy(etree.fromstring(xml_str))
+
+    # Determina partname único para o novo slide
+    existing = [prs.slides[i].part.partname for i in range(len(prs.slides))]
+    idx = len(prs.slides) + 1
+    while PackURI(f'/ppt/slides/slide{idx}.xml') in existing:
+        idx += 1
+    new_partname = PackURI(f'/ppt/slides/slide{idx}.xml')
+
+    # Cria o novo Part com o XML copiado
+    blob = etree.tostring(new_xml, xml_declaration=True, encoding='UTF-8', standalone=True)
+    new_part = Part(new_partname, template.part.content_type,
+                    template.part.package, blob)
+
+    # Copia todas as relações (layout, imagens, etc.)
     for rel in template.part.rels.values():
-        if "image" in rel.reltype:
-            try:
-                new_slide.part.relate_to(rel.target_part, rel.reltype)
-            except Exception:
-                pass
-    return new_slide
+        new_part.relate_to(rel.target_part, rel.reltype,
+                           is_external=rel.is_external)
+
+    # Registra o novo slide na apresentação
+    rId = prs.slides.part.relate_to(
+        new_part,
+        'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide'
+    )
+
+    # Adiciona à lista XML de slides
+    sldIdLst = prs.slides._sldIdLst
+    max_id = max((int(s.get('id')) for s in sldIdLst), default=255)
+    sldId = etree.SubElement(
+        sldIdLst,
+        '{http://schemas.openxmlformats.org/presentationml/2006/main}sldId'
+    )
+    sldId.set('id', str(max_id + 1))
+    sldId.set(
+        '{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id',
+        rId
+    )
+    return prs.slides[-1]
 
 
 def remove_last_slide(prs):
-    xml_slides = prs.slides._sldIdLst
-    if len(xml_slides) > 1:
-        xml_slides.remove(xml_slides[-1])
+    """Remove o último slide da apresentação."""
+    sldIdLst = prs.slides._sldIdLst
+    if len(sldIdLst) > 1:
+        sldIdLst.remove(sldIdLst[-1])
 
 
 def extract_photos_from_zip(zip_bytes):
