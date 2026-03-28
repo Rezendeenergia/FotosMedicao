@@ -63,29 +63,28 @@ def health():
     return jsonify({"status": "ok", "message": "Backend Rezende Energia rodando!", "timestamp": time.time()})
 
 def crop_and_resize(img_bytes, target_w_px, target_h_px):
-    """Corte cover rapido: sem bordas brancas, preenche totalmente o espaco."""
+    """
+    Redimensiona mantendo toda a imagem visivel (sem corte).
+    Preenche o espaco com a imagem esticada — sem bordas brancas.
+    Texto do canto inferior direito sempre preservado.
+    """
     img = Image.open(io.BytesIO(img_bytes))
     if img.mode != "RGB":
         img = img.convert("RGB")
     img_w, img_h = img.size
 
-    # Pre-reduz agressivamente para economizar RAM (max 1.5x o alvo)
+    # Pre-reduz para economizar RAM (max 1.5x o alvo)
     pre_w = int(target_w_px * 1.5)
     pre_h = int(target_h_px * 1.5)
     if img_w > pre_w or img_h > pre_h:
         img.thumbnail((pre_w, pre_h), Image.Resampling.BILINEAR)
         img_w, img_h = img.size
 
-    scale = max(target_w_px / img_w, target_h_px / img_h)
-    new_w = int(img_w * scale)
-    new_h = int(img_h * scale)
-    img_scaled = img.resize((new_w, new_h), Image.Resampling.BILINEAR)
-    left = (new_w - target_w_px) // 2
-    top  = (new_h - target_h_px) // 2
-    img_cropped = img_scaled.crop((left, top, left + target_w_px, top + target_h_px))
+    # Estica a imagem para preencher exatamente o slot (sem corte, sem borda)
+    img_resized = img.resize((target_w_px, target_h_px), Image.Resampling.BILINEAR)
     buf = io.BytesIO()
-    img_cropped.save(buf, format="JPEG", quality=65, subsampling=2)
-    del img, img_scaled  # libera RAM imediatamente
+    img_resized.save(buf, format="JPEG", quality=65, subsampling=2)
+    del img, img_resized  # libera RAM imediatamente
     return buf.getvalue()
 
 def add_photo_to_slide(slide, slot, img_bytes, already_processed=False, is_landscape=None):
