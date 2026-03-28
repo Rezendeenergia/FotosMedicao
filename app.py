@@ -69,9 +69,9 @@ def crop_and_resize(img_bytes, target_w_px, target_h_px):
         img = img.convert("RGB")
     img_w, img_h = img.size
 
-    # Pre-reduz imagens muito grandes antes de escalar (muito mais rapido)
-    pre_w = int(target_w_px * 2)
-    pre_h = int(target_h_px * 2)
+    # Pre-reduz agressivamente para economizar RAM (max 1.5x o alvo)
+    pre_w = int(target_w_px * 1.5)
+    pre_h = int(target_h_px * 1.5)
     if img_w > pre_w or img_h > pre_h:
         img.thumbnail((pre_w, pre_h), Image.Resampling.BILINEAR)
         img_w, img_h = img.size
@@ -79,13 +79,13 @@ def crop_and_resize(img_bytes, target_w_px, target_h_px):
     scale = max(target_w_px / img_w, target_h_px / img_h)
     new_w = int(img_w * scale)
     new_h = int(img_h * scale)
-    # BILINEAR: 3x mais rapido que LANCZOS, qualidade OK para PPTX
     img_scaled = img.resize((new_w, new_h), Image.Resampling.BILINEAR)
     left = (new_w - target_w_px) // 2
     top  = (new_h - target_h_px) // 2
     img_cropped = img_scaled.crop((left, top, left + target_w_px, top + target_h_px))
     buf = io.BytesIO()
-    img_cropped.save(buf, format="JPEG", quality=75, subsampling=2)
+    img_cropped.save(buf, format="JPEG", quality=65, subsampling=2)
+    del img, img_scaled  # libera RAM imediatamente
     return buf.getvalue()
 
 def add_photo_to_slide(slide, slot, img_bytes, already_processed=False, is_landscape=None):
@@ -267,15 +267,12 @@ _TARGET_H_PX = int(TARGET_H_EMU / CM_TO_EMU * 2.54 * 96)
 
 def _preprocess_photo(args):
     """
-    Processa uma foto (crop+resize) em paralelo.
-    Detecta orientacao: retrato usa 7,62x10,16; paisagem usa 10,16x7,62.
-    Retorna (idx, img_bytes_processado, is_landscape).
+    Processa uma foto (crop+resize) sequencial.
+    Sempre usa dimensoes fixas do slot W x H, sem inverter orientacao.
+    Retorna (idx, img_bytes_processado, is_landscape=False).
     """
     idx, img_bytes = args
     try:
-        probe = Image.open(io.BytesIO(img_bytes))
-        is_landscape = probe.width > probe.height
-        # Sempre usa dimensoes do slot (W x H), sem inverter
         data = crop_and_resize(img_bytes, _TARGET_W_PX, _TARGET_H_PX)
         return idx, data, False
     except Exception as e:
@@ -291,16 +288,19 @@ def process_pptx():
     zip_bytes = request.files['zip'].read()
     try:
         photos = extract_photos_from_zip(zip_bytes)
+        del zip_bytes  # libera RAM do ZIP apos extracao
         if not photos:
             return jsonify({"error": "Nenhuma foto encontrada no ZIP"}), 400
 
-        # Pre-processa todas as imagens em paralelo (I/O + CPU bound com threads)
-        logger.info(f"Pre-processando {len(photos)} fotos em paralelo...")
-        args = [(i, data) for i, (_, data) in enumerate(photos)]
-        with ThreadPoolExecutor(max_workers=4) as pool:
-            results = list(pool.map(_preprocess_photo, args))
-        # processed: {idx: (img_bytes, is_landscape)}
-        processed = {idx: (data, lsc) for idx, data, lsc in results if data is not None}
+        # Processa fotos sequencialmente para economizar RAM no Render free
+        logger.info(f"Pre-processando {len(photos)} fotos...")
+        processed = {}
+        for i, (_, raw) in enumerate(photos):
+            idx, data, lsc = _preprocess_photo((i, raw))
+            if data is not None:
+                processed[idx] = (data, lsc)
+            del raw  # libera RAM da foto original imediatamente
+        photos = None  # libera lista inteira apos processar
         logger.info(f"Pre-processamento concluido em {time.time()-t0:.1f}s")
 
         prs = Presentation(io.BytesIO(pptx_bytes))
