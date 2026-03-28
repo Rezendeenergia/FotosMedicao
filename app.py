@@ -114,19 +114,12 @@ def add_photo_to_slide(slide, slot, img_bytes, already_processed=False, is_lands
         except Exception:
             is_landscape = False
 
-    if is_landscape:
-        # Inverte slot: 10,16 x 7,62 cm (paisagem)
-        final_cx = slot["cy"]   # troca largura <-> altura
-        final_cy = slot["cx"]
-        # Centraliza no espaco original do slot
-        final_x = slot["x"] + (slot["cx"] - final_cx) // 2
-        final_y = slot["y"] + (slot["cy"] - final_cy) // 2
-    else:
-        # Retrato padrao: 7,62 x 10,16 cm
-        final_cx = slot["cx"]
-        final_cy = slot["cy"]
-        final_x = slot["x"]
-        final_y = slot["y"]
+    # Sempre usa as dimensoes exatas do slot (sem inverter, sem borda branca)
+    # Foto esticada para preencher completamente o espaco definido
+    final_cx = slot["cx"]
+    final_cy = slot["cy"]
+    final_x = slot["x"]
+    final_y = slot["y"]
 
     if already_processed:
         img_resized = img_bytes  # ja foi pre-processado em paralelo
@@ -282,12 +275,9 @@ def _preprocess_photo(args):
     try:
         probe = Image.open(io.BytesIO(img_bytes))
         is_landscape = probe.width > probe.height
-        if is_landscape:
-            # Inverte dimensoes para foto paisagem
-            data = crop_and_resize(img_bytes, _TARGET_H_PX, _TARGET_W_PX)
-        else:
-            data = crop_and_resize(img_bytes, _TARGET_W_PX, _TARGET_H_PX)
-        return idx, data, is_landscape
+        # Sempre usa dimensoes do slot (W x H), sem inverter
+        data = crop_and_resize(img_bytes, _TARGET_W_PX, _TARGET_H_PX)
+        return idx, data, False
     except Exception as e:
         logger.warning(f"Foto {idx} ignorada: {e}")
         return idx, None, False
