@@ -236,6 +236,7 @@ def remove_last_slide(prs):
 
 
 def extract_photos_from_zip(zip_bytes):
+    """Retorna lista de (nome, dados) — mantida para /validate e compatibilidade."""
     photos = []
     valid_ext = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.webp'}
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
@@ -247,6 +248,16 @@ def extract_photos_from_zip(zip_bytes):
             if len(data) > 1000:
                 photos.append((os.path.basename(name), data))
     return photos
+
+def list_photo_names_in_zip(zip_bytes):
+    """Retorna apenas os nomes das fotos validas, sem carregar dados na RAM."""
+    valid_ext = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.webp'}
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        names = sorted([n for n in zf.namelist()
+                        if not n.startswith('__MACOSX') and not os.path.basename(n).startswith('.')
+                        and os.path.splitext(n.lower())[1] in valid_ext
+                        and zf.getinfo(n).file_size > 1000])
+    return names
 
 
 @app.route("/validate", methods=["POST"])
@@ -287,46 +298,52 @@ def process_pptx():
     pptx_bytes = request.files['pptx'].read()
     zip_bytes = request.files['zip'].read()
     try:
-        photos = extract_photos_from_zip(zip_bytes)
-        del zip_bytes  # libera RAM do ZIP apos extracao
-        if not photos:
+        # 1) Lista nomes sem carregar dados — O(1) de RAM
+        photo_names = list_photo_names_in_zip(zip_bytes)
+        if not photo_names:
             return jsonify({"error": "Nenhuma foto encontrada no ZIP"}), 400
 
-        # Processa fotos sequencialmente para economizar RAM no Render free
-        logger.info(f"Pre-processando {len(photos)} fotos...")
-        processed = {}
-        for i, (_, raw) in enumerate(photos):
-            idx, data, lsc = _preprocess_photo((i, raw))
-            if data is not None:
-                processed[idx] = (data, lsc)
-            del raw  # libera RAM da foto original imediatamente
-        photos = None  # libera lista inteira apos processar
-        logger.info(f"Pre-processamento concluido em {time.time()-t0:.1f}s")
+        n_photos = min(len(photo_names), 100)
+        photo_names = photo_names[:n_photos]
+        slides_needed = max(1, -(-n_photos // 4))
+        logger.info(f"Processando {n_photos} fotos em {slides_needed} slides...")
 
+        # 2) Monta apresentacao com slides corretos
         prs = Presentation(io.BytesIO(pptx_bytes))
+        del pptx_bytes  # libera RAM do PPTX original
         if len(prs.slides) == 0:
             return jsonify({"error": "Apresentacao sem slides"}), 400
-        slides_needed = max(1, -(-len(photos) // 4))
         while len(prs.slides) < slides_needed:
             duplicate_slide(prs, 0)
         while len(prs.slides) > slides_needed:
             remove_last_slide(prs)
 
+        # 3) Processa e insere foto a foto direto do ZIP — nunca acumula tudo na RAM
         photos_used = 0
-        for slide_idx in range(slides_needed):
-            slide = prs.slides[slide_idx]
-            for slot_idx, slot in enumerate(PHOTO_SLOTS_4):
-                photo_idx = slide_idx * 4 + slot_idx
-                if photo_idx < len(photos) and photo_idx in processed:
-                    img_data, is_lsc = processed[photo_idx]
-                    add_photo_to_slide(slide, slot, img_data,
-                                       already_processed=True, is_landscape=is_lsc)
-                    photos_used += 1
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            del zip_bytes  # libera bytes brutos do ZIP, mantendo apenas o objeto ZipFile
+            for photo_idx, name in enumerate(photo_names):
+                slide_idx = photo_idx // 4
+                slot_idx  = photo_idx % 4
+                slide = prs.slides[slide_idx]
+                slot  = PHOTO_SLOTS_4[slot_idx]
+                try:
+                    raw = zf.read(name)
+                    _, data, lsc = _preprocess_photo((photo_idx, raw))
+                    del raw  # libera original imediatamente
+                    if data is not None:
+                        add_photo_to_slide(slide, slot, data,
+                                           already_processed=True, is_landscape=lsc)
+                        del data
+                        photos_used += 1
+                except Exception as ex:
+                    logger.warning(f"Foto {name} ignorada: {ex}")
+
         out = io.BytesIO()
         prs.save(out)
         out.seek(0)
         elapsed = time.time() - t0
-        logger.info(f"Processamento total: {elapsed:.1f}s para {photos_used} fotos")
+        logger.info(f"Concluido em {elapsed:.1f}s — {photos_used} fotos inseridas")
         response = send_file(out, mimetype='application/vnd.openxmlformats-officedocument.presentationml.presentation',
                              as_attachment=True, download_name='relatorio_preenchido.pptx')
         response.headers['X-Photos-Used'] = str(photos_used)
