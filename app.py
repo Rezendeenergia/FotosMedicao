@@ -383,12 +383,17 @@ def process_base_concretada():
         if len(prs.slides) == 0:
             return jsonify({"error": "Apresentacao sem slides"}), 400
         n_barramentos = len(numeros)
-        while len(prs.slides) < n_barramentos:
+        # Slide 0 = capa fixa, nao recebe fotos
+        # Barramentos comecam no slide 1 (segundo slide)
+        SLIDES_FIXOS_BASE = 1
+        total_slides_base = SLIDES_FIXOS_BASE + n_barramentos
+        # Duplica slide 0 como template para os barramentos
+        while len(prs.slides) < total_slides_base:
             duplicate_slide(prs, 0)
-        while len(prs.slides) > n_barramentos:
+        while len(prs.slides) > total_slides_base:
             remove_last_slide(prs)
         for i, numero in enumerate(numeros):
-            slide = prs.slides[i]
+            slide = prs.slides[SLIDES_FIXOS_BASE + i]  # pula a capa
             # Ordem: poste_i → slot Poste, barramento_i → slot Barramento, base_i → slot Base
             fotos = [
                 request.files.get(f'poste_{i}'),      # PHOTO_SLOTS_3[0] = Poste
