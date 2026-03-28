@@ -165,77 +165,46 @@ def add_photo_to_slide(slide, slot, img_bytes, already_processed=False, is_lands
 
 def set_barramento_number(slide, numero):
     """
-    Insere o numero do barramento no slide.
-    Estrategia em 4 tentativas:
-    1) Shape com nome contendo 'barramento' ou 'numero' (case-insensitive)
-    2) Placeholder que nao seja titulo
-    3) Qualquer shape com texto todo numerico ou vazio
-    4) Fallback: primeira caixa de texto disponivel
+    Insere o numero do barramento no shape 'CaixaDeTexto 27'.
+    Esse shape tem 0 runs — precisa criar o run via XML diretamente,
+    copiando atributos do endParaRPr (negrito, lang, etc).
     """
-    import re
+    from lxml import etree
 
-    # Log todos os shapes para debug
-    logger.info(f"set_barramento_number: {len(slide.shapes)} shapes no slide")
-    for shape in slide.shapes:
-        name = shape.name or ""
-        txt = ""
-        if shape.has_text_frame:
-            txt = shape.text_frame.text[:50]
-        logger.info(f"  shape='{name}' tipo={shape.shape_type} texto='{txt}'")
+    NSMAP_A = "http://schemas.openxmlformats.org/drawingml/2006/main"
 
-    # Tentativa 1: nome do shape contem 'barramento', 'numero', 'number', 'num'
     for shape in slide.shapes:
-        name = (shape.name or "").lower()
-        if shape.has_text_frame and any(k in name for k in ('barramento','numero','number','num','cod','code')):
-            _set_text(shape.text_frame, numero)
-            logger.info(f"  -> numero '{numero}' inserido via nome '{shape.name}'")
+        if shape.name == "CaixaDeTexto 27" and shape.has_text_frame:
+            tf = shape.text_frame
+            para = tf.paragraphs[0]
+            p_elem = para._p
+
+            # Pega atributos do endParaRPr para copiar na formatacao do run
+            end_rpr = p_elem.find(f"{{{NSMAP_A}}}endParaRPr")
+
+            # Cria elemento <a:r>
+            r_elem = etree.SubElement(p_elem, f"{{{NSMAP_A}}}r")
+
+            # Cria <a:rPr> copiando atributos de endParaRPr
+            rpr = etree.SubElement(r_elem, f"{{{NSMAP_A}}}rPr")
+            if end_rpr is not None:
+                for attr, val in end_rpr.attrib.items():
+                    rpr.set(attr, val)
+            rpr.set("dirty", "0")
+
+            # Move o <a:r> para antes do <a:endParaRPr>
+            if end_rpr is not None:
+                p_elem.remove(r_elem)
+                end_rpr.addprevious(r_elem)
+
+            # Cria <a:t> com o numero
+            t_elem = etree.SubElement(r_elem, f"{{{NSMAP_A}}}t")
+            t_elem.text = numero
+
+            logger.info(f"Numero '{numero}' inserido em CaixaDeTexto 27")
             return
 
-    # Tentativa 2: placeholder que nao seja titulo (PP_PLACEHOLDER tipo 1=titulo, 2=corpo)
-    from pptx.enum.shapes import PP_PLACEHOLDER
-    for shape in slide.placeholders:
-        if shape.placeholder_format.idx != 0:  # 0 = titulo
-            _set_text(shape.text_frame, numero)
-            logger.info(f"  -> numero '{numero}' inserido via placeholder idx={shape.placeholder_format.idx}")
-            return
-
-    # Tentativa 3: shape cujo texto atual eh todo numerico ou vazio
-    for shape in slide.shapes:
-        if shape.has_text_frame:
-            txt = shape.text_frame.text.strip()
-            if txt == "" or re.fullmatch(r'[0-9\s\-/]+', txt):
-                _set_text(shape.text_frame, numero)
-                logger.info(f"  -> numero '{numero}' inserido via texto numerico/vazio '{txt}'")
-                return
-
-    # Fallback: primeira caixa de texto
-    for shape in slide.shapes:
-        if shape.has_text_frame and shape.text_frame.paragraphs:
-            _set_text(shape.text_frame, numero)
-            logger.info(f"  -> numero '{numero}' inserido via fallback shape '{shape.name}'")
-            return
-
-    logger.warning(f"  -> NENHUM shape encontrado para inserir numero '{numero}'")
-
-
-def _set_text(text_frame, texto):
-    """Substitui o texto do text_frame preservando formatacao do primeiro run."""
-    para = text_frame.paragraphs[0]
-    if para.runs:
-        # Preserva fonte/tamanho do run existente, so troca o texto
-        para.runs[0].text = texto
-        # Limpa runs extras
-        for run in para.runs[1:]:
-            run.text = ""
-    else:
-        # Sem runs: cria um run novo
-        from pptx.util import Pt
-        run = para.add_run()
-        run.text = texto
-    # Limpa paragrafos extras
-    for p in text_frame.paragraphs[1:]:
-        for run in p.runs:
-            run.text = ""
+    logger.warning(f"CaixaDeTexto 27 nao encontrado no slide — numero '{numero}' nao inserido")
 
 
 def duplicate_slide(prs, slide_index):
@@ -475,6 +444,38 @@ def process_base_concretada():
     except Exception as e:
         logger.exception("Erro no processamento de base")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/inspect-base", methods=["POST"])
+def inspect_base():
+    """
+    Rota de diagnostico: recebe o pptx de base e retorna todos os shapes
+    de todos os slides com nome, tipo e texto. Usar para identificar o
+    campo do numero do barramento.
+    """
+    if 'pptx' not in request.files:
+        return jsonify({"error": "Envie o arquivo pptx"}), 400
+    pptx_bytes = request.files['pptx'].read()
+    prs = Presentation(io.BytesIO(pptx_bytes))
+    resultado = []
+    for slide_i, slide in enumerate(prs.slides):
+        shapes_info = []
+        for shape in slide.shapes:
+            info = {
+                "name": shape.name,
+                "shape_type": str(shape.shape_type),
+                "left_cm": round(shape.left / 360000, 2),
+                "top_cm": round(shape.top / 360000, 2),
+                "width_cm": round(shape.width / 360000, 2),
+                "height_cm": round(shape.height / 360000, 2),
+                "has_text": shape.has_text_frame,
+                "text": shape.text_frame.text[:100] if shape.has_text_frame else None,
+                "is_placeholder": shape.is_placeholder,
+                "placeholder_idx": shape.placeholder_format.idx if shape.is_placeholder else None,
+            }
+            shapes_info.append(info)
+        resultado.append({"slide": slide_i + 1, "shapes": shapes_info})
+    return jsonify(resultado)
 
 
 if __name__ == "__main__":
