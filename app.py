@@ -305,24 +305,35 @@ def process_pptx():
         n_photos = min(len(photo_names), 100)
         photo_names = photo_names[:n_photos]
         slides_needed = max(1, -(-n_photos // 4))
-        logger.info(f"Processando {n_photos} fotos em {slides_needed} slides...")
+        logger.info(f"Processando {n_photos} fotos em {slides_needed} slides (a partir do slide 2)...")
 
         # 2) Monta apresentacao com slides corretos
+        # Slide 0 = capa/template fixo, nao recebe fotos
+        # Slides 1..N = slides de fotos (duplicados a partir do slide 1 do template)
         prs = Presentation(io.BytesIO(pptx_bytes))
         del pptx_bytes  # libera RAM do PPTX original
         if len(prs.slides) == 0:
             return jsonify({"error": "Apresentacao sem slides"}), 400
-        while len(prs.slides) < slides_needed:
-            duplicate_slide(prs, 0)
-        while len(prs.slides) > slides_needed:
+
+        # Slides 0 e 1 = fixos (capa + slide padrao), nao recebem fotos
+        # Fotos comecam no slide 2 (indice 2)
+        SLIDES_FIXOS = 2
+        total_slides_needed = SLIDES_FIXOS + slides_needed
+
+        # Duplica o slide 1 (indice 1) como template de fotos
+        foto_template_idx = 1
+        while len(prs.slides) < total_slides_needed:
+            duplicate_slide(prs, foto_template_idx)
+        while len(prs.slides) > total_slides_needed:
             remove_last_slide(prs)
 
         # 3) Processa e insere foto a foto direto do ZIP — nunca acumula tudo na RAM
+        # Fotos vao para slides[2], slides[3], ... (slides 0 e 1 sao fixos)
         photos_used = 0
         with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
             del zip_bytes  # libera bytes brutos do ZIP, mantendo apenas o objeto ZipFile
             for photo_idx, name in enumerate(photo_names):
-                slide_idx = photo_idx // 4
+                slide_idx = SLIDES_FIXOS + (photo_idx // 4)  # começa no slide 2
                 slot_idx  = photo_idx % 4
                 slide = prs.slides[slide_idx]
                 slot  = PHOTO_SLOTS_4[slot_idx]
