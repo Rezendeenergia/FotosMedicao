@@ -164,20 +164,78 @@ def add_photo_to_slide(slide, slot, img_bytes, already_processed=False, is_lands
 
 
 def set_barramento_number(slide, numero):
+    """
+    Insere o numero do barramento no slide.
+    Estrategia em 4 tentativas:
+    1) Shape com nome contendo 'barramento' ou 'numero' (case-insensitive)
+    2) Placeholder que nao seja titulo
+    3) Qualquer shape com texto todo numerico ou vazio
+    4) Fallback: primeira caixa de texto disponivel
+    """
+    import re
+
+    # Log todos os shapes para debug
+    logger.info(f"set_barramento_number: {len(slide.shapes)} shapes no slide")
+    for shape in slide.shapes:
+        name = shape.name or ""
+        txt = ""
+        if shape.has_text_frame:
+            txt = shape.text_frame.text[:50]
+        logger.info(f"  shape='{name}' tipo={shape.shape_type} texto='{txt}'")
+
+    # Tentativa 1: nome do shape contem 'barramento', 'numero', 'number', 'num'
+    for shape in slide.shapes:
+        name = (shape.name or "").lower()
+        if shape.has_text_frame and any(k in name for k in ('barramento','numero','number','num','cod','code')):
+            _set_text(shape.text_frame, numero)
+            logger.info(f"  -> numero '{numero}' inserido via nome '{shape.name}'")
+            return
+
+    # Tentativa 2: placeholder que nao seja titulo (PP_PLACEHOLDER tipo 1=titulo, 2=corpo)
+    from pptx.enum.shapes import PP_PLACEHOLDER
+    for shape in slide.placeholders:
+        if shape.placeholder_format.idx != 0:  # 0 = titulo
+            _set_text(shape.text_frame, numero)
+            logger.info(f"  -> numero '{numero}' inserido via placeholder idx={shape.placeholder_format.idx}")
+            return
+
+    # Tentativa 3: shape cujo texto atual eh todo numerico ou vazio
     for shape in slide.shapes:
         if shape.has_text_frame:
-            tf = shape.text_frame
-            for para in tf.paragraphs:
-                for run in para.runs:
-                    if any(c.isdigit() for c in run.text) or run.text.strip() == "":
-                        run.text = numero
-                        return
-    for shape in slide.shapes:
-        if shape.has_text_frame:
-            tf = shape.text_frame
-            if tf.paragraphs and tf.paragraphs[0].runs:
-                tf.paragraphs[0].runs[0].text = numero
+            txt = shape.text_frame.text.strip()
+            if txt == "" or re.fullmatch(r'[0-9\s\-/]+', txt):
+                _set_text(shape.text_frame, numero)
+                logger.info(f"  -> numero '{numero}' inserido via texto numerico/vazio '{txt}'")
                 return
+
+    # Fallback: primeira caixa de texto
+    for shape in slide.shapes:
+        if shape.has_text_frame and shape.text_frame.paragraphs:
+            _set_text(shape.text_frame, numero)
+            logger.info(f"  -> numero '{numero}' inserido via fallback shape '{shape.name}'")
+            return
+
+    logger.warning(f"  -> NENHUM shape encontrado para inserir numero '{numero}'")
+
+
+def _set_text(text_frame, texto):
+    """Substitui o texto do text_frame preservando formatacao do primeiro run."""
+    para = text_frame.paragraphs[0]
+    if para.runs:
+        # Preserva fonte/tamanho do run existente, so troca o texto
+        para.runs[0].text = texto
+        # Limpa runs extras
+        for run in para.runs[1:]:
+            run.text = ""
+    else:
+        # Sem runs: cria um run novo
+        from pptx.util import Pt
+        run = para.add_run()
+        run.text = texto
+    # Limpa paragrafos extras
+    for p in text_frame.paragraphs[1:]:
+        for run in p.runs:
+            run.text = ""
 
 
 def duplicate_slide(prs, slide_index):
@@ -317,7 +375,7 @@ def process_pptx():
 
         # Slides 0 e 1 = fixos (capa + slide padrao), nao recebem fotos
         # Fotos comecam no slide 2 (indice 2)
-        SLIDES_FIXOS = 1
+        SLIDES_FIXOS = 2
         total_slides_needed = SLIDES_FIXOS + slides_needed
 
         # Duplica o slide 1 (indice 1) como template de fotos
