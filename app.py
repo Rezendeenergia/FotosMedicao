@@ -211,10 +211,23 @@ def set_barramento_number(slide, numero):
     logger.warning(f"CaixaDeTexto 27 nao encontrado no slide — numero '{numero}' nao inserido")
 
 
+NS_R_EMU = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+RID_OFFSET = 100  # rIds do template sao deslocados +100 para liberar espaco para fotos novas
+
+def remap_rids_in_element(element, id_map):
+    """Renumera r:embed, r:link, r:id em todo o XML do slide via lxml."""
+    for attr in [f'{{{NS_R_EMU}}}embed', f'{{{NS_R_EMU}}}link', f'{{{NS_R_EMU}}}id']:
+        for el in element.iter():
+            val = el.get(attr)
+            if val and val in id_map:
+                el.set(attr, id_map[val])
+
+
 def duplicate_slide(prs, slide_index):
     """
     Duplica um slide de forma segura, sem conflito de rId.
-    Garante que o PPTX gerado nao precise de reparo.
+    Renumera os rIds do template +100 para garantir que fotos novas
+    nao colidam com os rIds ja existentes no XML duplicado.
     """
     from pptx.opc.packuri import PackURI
     from pptx.parts.slide import SlidePart
@@ -226,7 +239,18 @@ def duplicate_slide(prs, slide_index):
     # Copia profunda do XML do slide
     new_element = copy.deepcopy(template_part._element)
 
-    # Partname unico — varre todos os partnames existentes no pacote
+    # Remapear rIds do template para +RID_OFFSET para liberar rId1..rId99 para fotos novas
+    # Isso evita que get_or_add_image_part escolha um rId ja usado no XML do slide duplicado
+    NOTES_RELTYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide'
+    template_rels = template_part.rels
+    old_to_new_rid = {}
+    for old_rid in template_rels.keys():
+        m = re.match(r'rId(\d+)', old_rid)
+        if m:
+            old_to_new_rid[old_rid] = f'rId{int(m.group(1)) + RID_OFFSET}'
+    remap_rids_in_element(new_element, old_to_new_rid)
+
+    # Partname unico
     existing_partnames = set(
         str(prs.slides[i].part.partname) for i in range(len(prs.slides))
     )
@@ -243,19 +267,21 @@ def duplicate_slide(prs, slide_index):
         new_element
     )
 
-    # Copia relacoes do template para o novo slide
-    # EXCLUIR notesSlide — cada slide precisa do seu proprio (ou nenhum)
-    # Compartilhar o mesmo notesSlide causa corrupção no PPTX
-    NOTES_RELTYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide'
-    for rel in template_part.rels.values():
+    # Copia relacoes com os novos rIds remapeados
+    for old_rid, rel in template_rels.items():
         if rel.reltype == NOTES_RELTYPE:
-            continue  # pula — nao copiar notas de slide
+            continue  # nao copiar notas — causa corrupcao
+        new_rid = old_to_new_rid.get(old_rid, old_rid)
         if rel.is_external:
-            new_part.relate_to(rel.target_ref, rel.reltype, is_external=True)
+            created = new_part.relate_to(rel.target_ref, rel.reltype, is_external=True)
         else:
-            new_part.relate_to(rel.target_part, rel.reltype, is_external=False)
+            created = new_part.relate_to(rel.target_part, rel.reltype, is_external=False)
+        # Renomear rId criado pelo relate_to para o rId remapeado
+        if created != new_rid:
+            rel_obj = new_part._rels._rels.pop(created)
+            new_part._rels._rels[new_rid] = rel_obj
 
-    # Registra o novo slide na apresentacao (gera rId unico)
+    # Registra o novo slide na apresentacao
     slide_reltype = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide'
     rId = prs.slides.part.relate_to(new_part, slide_reltype)
 
@@ -361,7 +387,7 @@ def process_pptx():
 
         # Slides 0 e 1 = fixos (capa + slide padrao), nao recebem fotos
         # Fotos comecam no slide 2 (indice 2)
-        SLIDES_FIXOS = 1
+        SLIDES_FIXOS = 2
         total_slides_needed = SLIDES_FIXOS + slides_needed
 
         # Duplica o slide 1 (indice 1) como template de fotos
@@ -433,35 +459,46 @@ def process_base_concretada():
             return jsonify({"error": "Template precisa ter pelo menos 2 slides"}), 400
 
         # Slide 0 = capa fixa, nunca tocada
-        # Slide 1 (segundo slide) = SEMPRE o template de barramento
-        # Todos os outros slides do PPTX sao descartados
+        # Slide 1 = SEMPRE o template de barramento (limpo, sem fotos)
         SLIDES_FIXOS_BASE = 1
-        template_barramento_idx = 1
         total_slides_base = SLIDES_FIXOS_BASE + n_barramentos
 
-        # Remove slides extras do template (slide 3 em diante), mantendo so capa + template
+        # Remove slides extras, mantendo so capa (0) + template (1)
         while len(prs.slides) > 2:
             remove_last_slide(prs)
 
-        # Duplica o slide 1 (template barramento) ate ter slides suficientes
-        while len(prs.slides) < total_slides_base:
-            duplicate_slide(prs, template_barramento_idx)
-        while len(prs.slides) > total_slides_base:
-            remove_last_slide(prs)
+        # Salva o template de barramento (slide 1) como PPTX de 1 slide separado
+        # para garantir que cada duplicacao parte de um estado 100% limpo e isolado
+        template_pptx = io.BytesIO()
+        prs.save(template_pptx)
+        template_pptx_bytes = template_pptx.getvalue()
 
+        # Para cada barramento: carrega o template limpo e duplica slide 1 quantas vezes precisar
+        # Isso evita que rels de imagens de um barramento vazem para o proximo
+        prs_final = Presentation(io.BytesIO(template_pptx_bytes))
+
+        # Garante que prs_final tem so capa + template (2 slides)
+        while len(prs_final.slides) > 2:
+            remove_last_slide(prs_final)
+
+        # Duplica o template (slide 1) uma vez por barramento adicional
+        for _ in range(n_barramentos - 1):
+            duplicate_slide(prs_final, 1)
+
+        # Agora insere fotos e numeros em cada slide — cada um eh uma copia limpa do template
         for i, numero in enumerate(numeros):
-            slide = prs.slides[SLIDES_FIXOS_BASE + i]  # pula a capa (slide 0)
-            # Ordem: poste_i → slot Poste, barramento_i → slot Barramento, base_i → slot Base
+            slide = prs_final.slides[SLIDES_FIXOS_BASE + i]
             fotos = [
-                request.files.get(f'poste_{i}'),      # PHOTO_SLOTS_3[0] = Poste
-                request.files.get(f'barramento_{i}'),  # PHOTO_SLOTS_3[1] = Barramento
-                request.files.get(f'base_{i}'),        # PHOTO_SLOTS_3[2] = Base
+                request.files.get(f'poste_{i}'),
+                request.files.get(f'barramento_{i}'),
+                request.files.get(f'base_{i}'),
             ]
             for slot, foto in zip(PHOTO_SLOTS_3, fotos):
                 if foto:
                     add_photo_to_slide(slide, slot, foto.read())
             if numero:
                 set_barramento_number(slide, numero)
+        prs = prs_final
         out = io.BytesIO()
         prs.save(out)
         out.seek(0)
