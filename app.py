@@ -39,9 +39,9 @@ PHOTO_SLOTS_4 = [
 
 # Slots base concretada — ordem: Poste | Barramento | Base
 PHOTO_SLOTS_3 = [
-    {"name": "Retangulo 41", "x": 4724400, "y": 2299850, "cx": TARGET_W_EMU, "cy": TARGET_H_EMU},  # Poste
-    {"name": "Retangulo 19", "x": 720435,  "y": 2299851, "cx": TARGET_W_EMU, "cy": TARGET_H_EMU},  # Barramento
-    {"name": "Retangulo 15", "x": 8728366, "y": 2299851, "cx": TARGET_W_EMU, "cy": TARGET_H_EMU},  # Base
+    {"name": "Retângulo 41", "x": 4724400, "y": 2299850, "cx": TARGET_W_EMU, "cy": TARGET_H_EMU},  # Poste
+    {"name": "Retângulo 19", "x": 720435,  "y": 2299851, "cx": TARGET_W_EMU, "cy": TARGET_H_EMU},  # Barramento
+    {"name": "Retângulo 15", "x": 8728366, "y": 2299851, "cx": TARGET_W_EMU, "cy": TARGET_H_EMU},  # Base
 ]
 
 BARRAMENTO_TEXTBOX = {
@@ -96,11 +96,15 @@ def add_photo_to_slide(slide, slot, img_bytes, already_processed=False, is_lands
     """
     sp_tree = slide.shapes._spTree
 
-    # Remove placeholder original
+    # Remove placeholder original — tolerante a acento (Retangulo vs Retângulo)
+    import unicodedata
+    def normaliza(s):
+        return unicodedata.normalize('NFD', s).encode('ascii', 'ignore').decode('ascii').lower()
+    slot_name_norm = normaliza(slot["name"])
     for sp in list(sp_tree):
         if sp.tag.split("}")[-1] == "sp":
             cNvPr = sp.find(".//" + qn("p:cNvPr"))
-            if cNvPr is not None and cNvPr.get("name") == slot["name"]:
+            if cNvPr is not None and normaliza(cNvPr.get("name", "")) == slot_name_norm:
                 sp_tree.remove(sp)
                 break
 
@@ -357,7 +361,7 @@ def process_pptx():
 
         # Slides 0 e 1 = fixos (capa + slide padrao), nao recebem fotos
         # Fotos comecam no slide 2 (indice 2)
-        SLIDES_FIXOS = 2
+        SLIDES_FIXOS = 1
         total_slides_needed = SLIDES_FIXOS + slides_needed
 
         # Duplica o slide 1 (indice 1) como template de fotos
