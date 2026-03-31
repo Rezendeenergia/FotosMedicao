@@ -240,8 +240,12 @@ def duplicate_slide(prs, slide_index):
     )
 
     # Copia relacoes do template para o novo slide
-    # relate_to retorna um rId unico gerado automaticamente — sem conflito
+    # EXCLUIR notesSlide — cada slide precisa do seu proprio (ou nenhum)
+    # Compartilhar o mesmo notesSlide causa corrupção no PPTX
+    NOTES_RELTYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide'
     for rel in template_part.rels.values():
+        if rel.reltype == NOTES_RELTYPE:
+            continue  # pula — nao copiar notas de slide
         if rel.is_external:
             new_part.relate_to(rel.target_ref, rel.reltype, is_external=True)
         else:
@@ -353,7 +357,7 @@ def process_pptx():
 
         # Slides 0 e 1 = fixos (capa + slide padrao), nao recebem fotos
         # Fotos comecam no slide 2 (indice 2)
-        SLIDES_FIXOS = 2
+        SLIDES_FIXOS = 1
         total_slides_needed = SLIDES_FIXOS + slides_needed
 
         # Duplica o slide 1 (indice 1) como template de fotos
