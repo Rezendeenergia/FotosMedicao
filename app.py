@@ -357,7 +357,7 @@ def process_pptx():
 
         # Slides 0 e 1 = fixos (capa + slide padrao), nao recebem fotos
         # Fotos comecam no slide 2 (indice 2)
-        SLIDES_FIXOS = 1
+        SLIDES_FIXOS = 2
         total_slides_needed = SLIDES_FIXOS + slides_needed
 
         # Duplica o slide 1 (indice 1) como template de fotos
@@ -425,21 +425,21 @@ def process_base_concretada():
         n_barramentos = len(numeros)
         # Slide 0 = capa fixa, nao recebe fotos
         # Barramentos comecam no slide 1 (segundo slide)
-        # Todos os slides do template sao preservados exceto o ultimo
-        # O ultimo slide e o template de barramento que sera duplicado
-        # Ex: PPTX com 2 slides → 1 fixo + 1 template
-        # Ex: PPTX com 4 slides → 3 fixos + 1 template
-        SLIDES_FIXOS_BASE = len(prs.slides) - 1
-        total_slides_base = SLIDES_FIXOS_BASE + n_barramentos
-
         if len(prs.slides) < 2:
             return jsonify({"error": "Template precisa ter pelo menos 2 slides"}), 400
 
-        # O template de barramento e SEMPRE o ultimo slide do PPTX enviado
-        # Independente de quantos slides fixos o usuario tenha no arquivo
-        template_barramento_idx = len(prs.slides) - 1
+        # Slide 0 = capa fixa, nunca tocada
+        # Slide 1 (segundo slide) = SEMPRE o template de barramento
+        # Todos os outros slides do PPTX sao descartados
+        SLIDES_FIXOS_BASE = 1
+        template_barramento_idx = 1
+        total_slides_base = SLIDES_FIXOS_BASE + n_barramentos
 
-        # Duplica o template de barramento ate ter slides suficientes
+        # Remove slides extras do template (slide 3 em diante), mantendo so capa + template
+        while len(prs.slides) > 2:
+            remove_last_slide(prs)
+
+        # Duplica o slide 1 (template barramento) ate ter slides suficientes
         while len(prs.slides) < total_slides_base:
             duplicate_slide(prs, template_barramento_idx)
         while len(prs.slides) > total_slides_base:
