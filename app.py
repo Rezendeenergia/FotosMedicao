@@ -208,49 +208,58 @@ def set_barramento_number(slide, numero):
 
 
 def duplicate_slide(prs, slide_index):
-    """Duplica slide corretamente usando SlidePart do python-pptx."""
+    """
+    Duplica um slide de forma segura, sem conflito de rId.
+    Garante que o PPTX gerado nao precise de reparo.
+    """
     from pptx.opc.packuri import PackURI
     from pptx.parts.slide import SlidePart
+    from pptx.opc.constants import RELATIONSHIP_TYPE as RT
 
     template = prs.slides[slide_index]
+    template_part = template.part
 
-    # Cópia profunda do elemento XML do slide
-    new_element = copy.deepcopy(template._element)
+    # Copia profunda do XML do slide
+    new_element = copy.deepcopy(template_part._element)
 
-    # Determina partname único
-    existing = [prs.slides[i].part.partname for i in range(len(prs.slides))]
+    # Partname unico — varre todos os partnames existentes no pacote
+    existing_partnames = set(
+        str(prs.slides[i].part.partname) for i in range(len(prs.slides))
+    )
     idx = len(prs.slides) + 1
-    while PackURI(f'/ppt/slides/slide{idx}.xml') in existing:
+    while f'/ppt/slides/slide{idx}.xml' in existing_partnames:
         idx += 1
     new_partname = PackURI(f'/ppt/slides/slide{idx}.xml')
 
-    # Cria SlidePart (não Part base) — necessário para ter o atributo .slide
-    new_part = SlidePart(new_partname, template.part.content_type,
-                         template.part.package, new_element)
-
-    # Copia todas as relações (layout, imagens, etc.)
-    for rel in template.part.rels.values():
-        new_part.relate_to(rel.target_part, rel.reltype,
-                           is_external=rel.is_external)
-
-    # Registra o novo slide na apresentação
-    rId = prs.slides.part.relate_to(
-        new_part,
-        'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide'
+    # Cria o novo SlidePart
+    new_part = SlidePart(
+        new_partname,
+        template_part.content_type,
+        template_part.package,
+        new_element
     )
 
-    # Adiciona à lista XML de slides
+    # Copia relacoes do template para o novo slide
+    # relate_to retorna um rId unico gerado automaticamente — sem conflito
+    for rel in template_part.rels.values():
+        if rel.is_external:
+            new_part.relate_to(rel.target_ref, rel.reltype, is_external=True)
+        else:
+            new_part.relate_to(rel.target_part, rel.reltype, is_external=False)
+
+    # Registra o novo slide na apresentacao (gera rId unico)
+    slide_reltype = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide'
+    rId = prs.slides.part.relate_to(new_part, slide_reltype)
+
+    # Insere na lista XML de slides com id unico
     sldIdLst = prs.slides._sldIdLst
     max_id = max((int(s.get('id')) for s in sldIdLst), default=255)
-    sldId = etree.SubElement(
-        sldIdLst,
-        '{http://schemas.openxmlformats.org/presentationml/2006/main}sldId'
-    )
+    NS_PML = 'http://schemas.openxmlformats.org/presentationml/2006/main'
+    NS_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+    sldId = etree.SubElement(sldIdLst, f'{{{NS_PML}}}sldId')
     sldId.set('id', str(max_id + 1))
-    sldId.set(
-        '{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id',
-        rId
-    )
+    sldId.set(f'{{{NS_REL}}}id', rId)
+
     return prs.slides[-1]
 
 
@@ -344,7 +353,7 @@ def process_pptx():
 
         # Slides 0 e 1 = fixos (capa + slide padrao), nao recebem fotos
         # Fotos comecam no slide 2 (indice 2)
-        SLIDES_FIXOS = 1
+        SLIDES_FIXOS = 2
         total_slides_needed = SLIDES_FIXOS + slides_needed
 
         # Duplica o slide 1 (indice 1) como template de fotos
