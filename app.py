@@ -1,5 +1,6 @@
 import os
 import io
+import re
 import zipfile
 import copy
 import time
@@ -495,9 +496,16 @@ def process_base_concretada():
             ]
             for slot, foto in zip(PHOTO_SLOTS_3, fotos):
                 if foto:
-                    add_photo_to_slide(slide, slot, foto.read())
+                    try:
+                        img_bytes = foto.read()
+                        add_photo_to_slide(slide, slot, img_bytes)
+                    except Exception as ex:
+                        logger.warning(f"Barramento {i} slot {slot['name']}: {ex}")
             if numero:
-                set_barramento_number(slide, numero)
+                try:
+                    set_barramento_number(slide, numero)
+                except Exception as ex:
+                    logger.warning(f"Barramento {i} numero '{numero}': {ex}")
         prs = prs_final
         out = io.BytesIO()
         prs.save(out)
