@@ -212,44 +212,20 @@ def set_barramento_number(slide, numero):
     logger.warning(f"CaixaDeTexto 27 nao encontrado no slide — numero '{numero}' nao inserido")
 
 
-NS_R_EMU = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
-RID_OFFSET = 100  # rIds do template sao deslocados +100 para liberar espaco para fotos novas
-
-def remap_rids_in_element(element, id_map):
-    """Renumera r:embed, r:link, r:id em todo o XML do slide via lxml."""
-    for attr in [f'{{{NS_R_EMU}}}embed', f'{{{NS_R_EMU}}}link', f'{{{NS_R_EMU}}}id']:
-        for el in element.iter():
-            val = el.get(attr)
-            if val and val in id_map:
-                el.set(attr, id_map[val])
-
-
 def duplicate_slide(prs, slide_index):
     """
-    Duplica um slide de forma segura, sem conflito de rId.
-    Renumera os rIds do template +100 para garantir que fotos novas
-    nao colidam com os rIds ja existentes no XML duplicado.
+    Duplica um slide de forma segura, sem conflito de rId e sem notas compartilhadas.
     """
     from pptx.opc.packuri import PackURI
     from pptx.parts.slide import SlidePart
-    from pptx.opc.constants import RELATIONSHIP_TYPE as RT
+
+    NOTES_RELTYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide'
 
     template = prs.slides[slide_index]
     template_part = template.part
 
     # Copia profunda do XML do slide
     new_element = copy.deepcopy(template_part._element)
-
-    # Remapear rIds do template para +RID_OFFSET para liberar rId1..rId99 para fotos novas
-    # Isso evita que get_or_add_image_part escolha um rId ja usado no XML do slide duplicado
-    NOTES_RELTYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide'
-    template_rels = template_part.rels
-    old_to_new_rid = {}
-    for old_rid in template_rels.keys():
-        m = re.match(r'rId(\d+)', old_rid)
-        if m:
-            old_to_new_rid[old_rid] = f'rId{int(m.group(1)) + RID_OFFSET}'
-    remap_rids_in_element(new_element, old_to_new_rid)
 
     # Partname unico
     existing_partnames = set(
@@ -268,19 +244,14 @@ def duplicate_slide(prs, slide_index):
         new_element
     )
 
-    # Copia relacoes com os novos rIds remapeados
-    for old_rid, rel in template_rels.items():
+    # Copia relacoes — pula notesSlide (causaria corrupcao se compartilhado)
+    for rel in template_part.rels.values():
         if rel.reltype == NOTES_RELTYPE:
-            continue  # nao copiar notas — causa corrupcao
-        new_rid = old_to_new_rid.get(old_rid, old_rid)
+            continue
         if rel.is_external:
-            created = new_part.relate_to(rel.target_ref, rel.reltype, is_external=True)
+            new_part.relate_to(rel.target_ref, rel.reltype, is_external=True)
         else:
-            created = new_part.relate_to(rel.target_part, rel.reltype, is_external=False)
-        # Renomear rId criado pelo relate_to para o rId remapeado
-        if created != new_rid:
-            rel_obj = new_part._rels._rels.pop(created)
-            new_part._rels._rels[new_rid] = rel_obj
+            new_part.relate_to(rel.target_part, rel.reltype, is_external=False)
 
     # Registra o novo slide na apresentacao
     slide_reltype = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide'
